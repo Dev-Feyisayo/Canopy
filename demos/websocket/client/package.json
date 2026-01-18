@@ -1,0 +1,25 @@
+{
+  "name": "websocket-client",
+  "version": "1.0.0",
+  "description": "WebSocket client for testing the C++ WebSocket server",
+  "main": "client.js",
+  "scripts": {
+    "start": "node client.js",
+    "interactive": "node interactive.js",
+    "test": "node test.js",
+    "test-rest": "node test_rest.js"
+  },
+  "keywords": [
+    "websocket",
+    "client",
+    "test"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "protobufjs-cli": "^2.0.0"
+  }
+}

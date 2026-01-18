@@ -1,0 +1,48 @@
+/*
+ *   Copyright (c) 2024 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+
+#import "rpc/rpc_types.idl"
+
+namespace websocket_demo
+{
+    namespace v1
+    {
+        struct envelope
+        {
+            uint64_t message_id;
+            uint64_t message_type;
+            std::vector<char> data;
+        };
+
+        struct request
+        {
+            rpc::encoding encoding; 
+            uint64_t tag;
+            uint64_t caller_zone_id;
+            uint64_t destination_zone_id;
+            uint64_t object_id;
+            uint64_t interface_id;
+            uint64_t method_id;
+            std::vector<char> data;
+            std::vector<rpc::back_channel_entry> back_channel;
+        };
+
+        struct response
+        {
+            uint64_t error;
+            std::vector<char> data;
+            std::vector<rpc::back_channel_entry> back_channel;
+        };
+
+        [status=demo]
+        interface i_calculator
+        {
+            [description="add"] int add(double first_val, double second_val, [out] double& response);
+            [description="subtract"] int subtract(double first_val, double second_val, [out] double& response);
+            [description="multiply"] int multiply(double first_val, double second_val, [out] double& response);
+            [description="divide"] int divide(double first_val, double second_val, [out] double& response);
+        };
+    }
+}

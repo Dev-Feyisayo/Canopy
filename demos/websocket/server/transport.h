@@ -1,0 +1,117 @@
+/*
+ *   Copyright (c) 2026 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+#pragma once
+
+#include <functional>
+
+#include <rpc/rpc.h>
+#include <wslay/wslay.h>
+
+namespace websocket_demo
+{
+    // Transport from child zone to parent zone
+    // Used by child to communicate with parent
+    class transport : public rpc::transport
+    {
+
+    public:
+        transport(std::string name, std::shared_ptr<rpc::service> service, rpc::zone adjacent_zone_id);
+        transport(std::string name, rpc::zone zone_id, rpc::zone adjacent_zone_id);
+        transport(wslay_event_context_ptr wslay_ctx, std::shared_ptr<rpc::service> service, rpc::zone adjacent_zone_id);
+
+        virtual ~transport() DEFAULT_DESTRUCTOR;
+
+        CORO_TASK(int) connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr) override
+        {
+            std::ignore = input_descr;
+            std::ignore = output_descr;
+            // Parent transport is connected immediately - no handshake needed
+            CO_RETURN rpc::error::OK();
+        }
+
+        template<class in_param_type, class out_param_type>
+        static std::function<CORO_TASK(int)(
+            rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr, std::shared_ptr<transport>& child)>
+        bind(rpc::zone new_zone_id,
+            std::function<CORO_TASK(int)(const rpc::shared_ptr<in_param_type>&,
+                rpc::shared_ptr<out_param_type>&,
+                const std::shared_ptr<rpc::child_service>&)>&& child_entry_point_fn);
+
+        // Outbound i_marshaller interface - sends from child to parent
+        CORO_TASK(int)
+        send(uint64_t protocol_version,
+            rpc::encoding encoding,
+            uint64_t tag,
+            rpc::caller_zone caller_zone_id,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::interface_ordinal interface_id,
+            rpc::method method_id,
+            const rpc::span& in_data,
+            std::vector<char>& out_buf_,
+            const std::vector<rpc::back_channel_entry>& in_back_channel,
+            std::vector<rpc::back_channel_entry>& out_back_channel) override;
+
+        CORO_TASK(void)
+        post(uint64_t protocol_version,
+            rpc::encoding encoding,
+            uint64_t tag,
+            rpc::caller_zone caller_zone_id,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::interface_ordinal interface_id,
+            rpc::method method_id,
+            const rpc::span& in_data,
+            const std::vector<rpc::back_channel_entry>& back_channel) override;
+
+        CORO_TASK(int)
+        try_cast(uint64_t protocol_version,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::interface_ordinal interface_id,
+            const std::vector<rpc::back_channel_entry>& back_channel,
+            std::vector<rpc::back_channel_entry>& out_back_channel) override;
+
+        CORO_TASK(int)
+        add_ref(uint64_t protocol_version,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::caller_zone caller_zone_id,
+            rpc::known_direction_zone known_direction_zone_id,
+            rpc::add_ref_options build_out_param_channel,
+            uint64_t& reference_count,
+            const std::vector<rpc::back_channel_entry>& back_channel,
+            std::vector<rpc::back_channel_entry>& out_back_channel) override;
+
+        CORO_TASK(int)
+        release(uint64_t protocol_version,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::caller_zone caller_zone_id,
+            rpc::release_options options,
+            uint64_t& reference_count,
+            const std::vector<rpc::back_channel_entry>& back_channel,
+            std::vector<rpc::back_channel_entry>& out_back_channel) override;
+
+        // New methods from i_marshaller interface
+        CORO_TASK(void)
+        object_released(uint64_t protocol_version,
+            rpc::destination_zone destination_zone_id,
+            rpc::object object_id,
+            rpc::caller_zone caller_zone_id,
+            const std::vector<rpc::back_channel_entry>& back_channel) override;
+
+        CORO_TASK(void)
+        transport_down(uint64_t protocol_version,
+            rpc::destination_zone destination_zone_id,
+            rpc::caller_zone caller_zone_id,
+            const std::vector<rpc::back_channel_entry>& back_channel) override;
+
+        CORO_TASK(void) stub_handle_send(v1::envelope request);
+
+    private:
+        wslay_event_context_ptr wslay_ctx_{nullptr};
+    };
+}

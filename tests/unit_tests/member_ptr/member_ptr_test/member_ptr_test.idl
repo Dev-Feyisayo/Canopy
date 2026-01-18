@@ -1,0 +1,14 @@
+/*
+ *   Copyright (c) 2026 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+
+namespace member_ptr_test
+{
+    interface i_test
+    {
+        int test(int val);
+        int get_value(int& val);
+    };
+
+}

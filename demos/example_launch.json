@@ -1,0 +1,47 @@
+{
+    // this is to get you started in running the demos
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "websocket_server",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/output/debug/websocket_server",
+            "args": [
+                "--cert",
+                "${workspaceFolder}/demos/websocket/server/certs/server.crt",
+                "--key",
+                "${workspaceFolder}/demos/websocket/server/certs/server.key"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/output/debug",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Ignore SIGPIPE (broken pipe) signals",
+                    "text": "handle SIGPIPE nostop noprint pass",
+                    "ignoreFailures": true
+                }
+            ],
+            "sourceFileMap": {
+                // Map the path the debugger/compiler sees (inside /var/home)
+                // to the path VS Code is using (via the /home symlink)
+                // "/var/home/edward/projects/rpc": "/home/edward/projects/rpc"
+                // A more generic fix might be:
+                "/var/home/": "/home/"
+            }
+        }
+    ]
+}

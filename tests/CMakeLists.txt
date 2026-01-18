@@ -1,0 +1,31 @@
+#[[
+   Copyright (c) 2024 Edward Boggis-Rolfe
+   All rights reserved.
+]]
+cmake_minimum_required(VERSION 3.24)
+
+if(CANOPY_BUILD_ENCLAVE)
+  set(CANOPY_DEFINES ${CANOPY_DEFINES} CANOPY_BUILD_ENCLAVE)
+endif()
+
+add_subdirectory(idls)
+add_subdirectory(common)
+# add_subdirectory(memory_tests)
+add_subdirectory(std_test)
+add_subdirectory(fixtures)
+add_subdirectory(test_host)
+add_subdirectory(serialiser_test)
+# this is a way to detect if we have nlohman that we can use for testing json schemas
+if(DEFINED NLOHMANN_JSON_CONFIG_INSTALL_DIR)
+  add_subdirectory(json_schema_test)
+endif()
+
+if(CANOPY_BUILD_ENCLAVE)
+  add_subdirectory(test_enclave)
+endif()
+
+# Add fuzz test subdirectory
+add_subdirectory(fuzz_test)
+
+# Add unit tests subdirectory
+add_subdirectory(unit_tests)

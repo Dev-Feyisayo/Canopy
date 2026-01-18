@@ -1,0 +1,17 @@
+/*
+ *   Copyright (c) 2024 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+
+#import "example_shared/example_shared.idl"
+[inline] namespace v1
+{
+    namespace zzz
+    {
+        [status=production]
+        interface i_zzz
+        {
+            error_code add(int a, int b, [out, by_value] int& c);
+        };
+    }
+}

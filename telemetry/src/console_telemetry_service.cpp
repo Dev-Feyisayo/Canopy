@@ -1,0 +1,1327 @@
+/*
+ *   Copyright (c) 2026 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+// Standard C++ headers
+#include <chrono>
+#include <thread>
+
+// RPC headers
+#include <rpc/rpc.h>
+#include <rpc/telemetry/console_telemetry_service.h>
+
+// Other headers
+#include <spdlog/async.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/sink.h>
+#include <spdlog/spdlog.h>
+
+namespace rpc
+{
+    console_telemetry_service::console_telemetry_service() = default;
+
+    console_telemetry_service::console_telemetry_service(
+        const std::string& test_suite_name, const std::string& test_name, const std::filesystem::path& directory)
+        : log_directory_(directory)
+        , test_suite_name_(test_suite_name)
+        , test_name_(test_name)
+    {
+    }
+
+    console_telemetry_service::~console_telemetry_service()
+    {
+        if (logger_)
+        {
+            // Flush any pending async messages - this blocks until complete
+            logger_->flush();
+
+            // Get reference to the thread pool before dropping logger
+            auto tp = spdlog::thread_pool();
+
+            // Remove logger from spdlog registry to prevent conflicts
+            if (!logger_name_.empty())
+            {
+                spdlog::drop(logger_name_);
+            }
+
+            // Drop the logger reference to allow proper cleanup
+            logger_.reset();
+
+            // Wait for thread pool to finish processing if it exists and has work
+            if (tp)
+            {
+                // Wait for the queue to be empty - this is more deterministic than arbitrary sleep
+                constexpr int max_wait_ms = 100;
+                constexpr int check_interval_ms = 1;
+
+                for (int waited = 0; waited < max_wait_ms; waited += check_interval_ms)
+                {
+                    if (tp->queue_size() == 0)
+                    {
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
+                }
+
+                // Small additional delay to ensure worker thread processes the empty queue check
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+    }
+
+    void capitalise(std::string& name)
+    {
+        // Capitalize the entire name
+        for (char& c : name)
+        {
+            if (c >= 'a' && c <= 'z')
+            {
+                c = c - 'a' + 'A';
+            }
+        }
+    }
+
+    std::string console_telemetry_service::get_zone_name(uint64_t zone_id) const
+    {
+        std::shared_lock<std::shared_mutex> lock(zone_names_mutex_);
+        auto it = zone_names_.find(zone_id);
+        if (it != zone_names_.end())
+        {
+            std::string name = it->second;
+            // Capitalize the entire name
+            capitalise(name);
+            return "[" + name + " = " + std::to_string(zone_id) + "]";
+        }
+        return "[" + std::to_string(zone_id) + "]";
+    }
+
+    std::string console_telemetry_service::get_zone_color(uint64_t zone_id) const
+    {
+        // ANSI color codes - cycle through 8 bright colors
+        static const char* colors[] = {
+            "\033[91m", // Bright Red
+            "\033[92m", // Bright Green
+            "\033[93m", // Bright Yellow
+            "\033[94m", // Bright Blue
+            "\033[95m", // Bright Magenta
+            "\033[96m", // Bright Cyan
+            "\033[97m", // Bright White
+            "\033[90m"  // Bright Black (Gray)
+        };
+        return colors[zone_id % 8];
+    }
+
+    std::string console_telemetry_service::get_level_color(level_enum level) const
+    {
+        switch (level)
+        {
+        case warn:
+            return "\033[93m"; // Bright Yellow
+        case err:
+            return "\033[91m"; // Bright Red
+        case critical:
+            return "\033[95m"; // Bright Magenta
+        default:
+            return ""; // No color for other levels
+        }
+    }
+
+    std::string console_telemetry_service::reset_color() const
+    {
+        return "\033[0m"; // Reset to default color
+    }
+
+    void console_telemetry_service::init_logger() const
+    {
+        if (!logger_)
+        {
+            if (!log_directory_.empty() && !test_suite_name_.empty() && !test_name_.empty())
+            {
+                // File output mode - create logger with both console and file sinks
+                try
+                {
+                    // Sanitize test suite name by replacing problematic characters with #
+                    auto fixed_suite_name = test_suite_name_;
+                    for (auto& ch : fixed_suite_name)
+                    {
+                        if (ch == '/' || ch == '\\' || ch == ':' || ch == '*')
+                            ch = '#';
+                    }
+
+                    // Create directories if they don't exist
+                    std::error_code ec;
+                    auto full_directory_path = log_directory_ / fixed_suite_name;
+                    std::filesystem::create_directories(full_directory_path, ec);
+
+                    if (ec)
+                    {
+                        // Log directory creation failure but continue with console-only logging
+                        auto console_logger = spdlog::default_logger();
+                        console_logger->warn(
+                            "Failed to create console telemetry directory '{}': {} - falling back to console-only mode",
+                            full_directory_path.string(),
+                            ec.message());
+                        logger_ = spdlog::default_logger();
+                        return;
+                    }
+
+                    // Create log file path
+                    auto log_file_path = log_directory_ / fixed_suite_name / (test_name_ + "_console.log");
+
+                    // Use unique logger name based on instance address to avoid conflicts
+                    logger_name_ = "console_telemetry_" + std::to_string(reinterpret_cast<uintptr_t>(this));
+
+                    // Create sinks - console sink with colors, file sink without colors
+                    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+                    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file_path.string());
+
+                    // Set patterns - console keeps ANSI colors, file uses clean format
+                    console_sink->set_pattern("%v");                     // Raw pattern preserves our ANSI formatting
+                    file_sink->set_pattern("[%Y-%m-%d %H:%M:%S.%e] %v"); // Clean timestamped format for file
+
+                    // Create logger with both sinks
+                    std::vector<spdlog::sink_ptr> sinks = {console_sink, file_sink};
+                    logger_ = std::make_shared<spdlog::logger>(logger_name_, sinks.begin(), sinks.end());
+
+                    logger_->set_level(spdlog::level::trace);
+                    logger_->flush_on(spdlog::level::trace); // Ensure all messages are written to file
+
+                    // Register with spdlog to avoid name conflicts
+                    spdlog::register_logger(logger_);
+
+                    // Log success message to console
+                    auto console_logger = spdlog::default_logger();
+                    console_logger->info("Console telemetry logging to file: {}", log_file_path.string());
+                }
+                catch (...)
+                {
+                    // Fallback to console only if file logging fails
+                    logger_ = spdlog::default_logger();
+                }
+            }
+            else
+            {
+                // Console output mode (default behavior)
+                logger_ = spdlog::default_logger();
+            }
+        }
+    }
+
+    void console_telemetry_service::register_zone_name(uint64_t zone_id, const std::string& name, bool optional_replace) const
+    {
+        std::unique_lock<std::shared_mutex> lock(zone_names_mutex_);
+        auto it = zone_names_.find(zone_id);
+        if (it != zone_names_.end())
+        {
+            if (it->second != name)
+            {
+                if (optional_replace)
+                {
+                    return;
+                }
+                init_logger();
+                logger_->warn("\033[93mWARNING: Zone {} name changing from '{}' to '{}'\033[0m", zone_id, it->second, name);
+            }
+        }
+        zone_names_[zone_id] = name;
+    }
+
+    bool console_telemetry_service::create(std::shared_ptr<rpc::i_telemetry_service>& service,
+        const std::string& test_suite_name,
+        const std::string& name,
+        const std::filesystem::path& directory)
+    {
+        std::shared_ptr<console_telemetry_service> console_service;
+
+        if (!directory.empty())
+        {
+            // File output mode - use constructor with directory parameters
+            console_service = std::shared_ptr<console_telemetry_service>(
+                new console_telemetry_service(test_suite_name, name, directory));
+        }
+        else
+        {
+            // Console output mode - use default constructor
+            console_service = std::make_shared<console_telemetry_service>();
+        }
+
+        console_service->init_logger();
+        service = console_service;
+        return true;
+    }
+
+    void console_telemetry_service::on_service_creation(
+        const std::string& name, rpc::zone zone_id, rpc::destination_zone parent_zone_id) const
+    {
+        register_zone_name(zone_id.get_val(), name, false);
+        init_logger();
+        if (parent_zone_id.get_val() == 0)
+            logger_->info("{}{} service_creation{}",
+                get_zone_color(zone_id.get_val()),
+                get_zone_name(zone_id.get_val()),
+                reset_color());
+        else
+            logger_->info("{}{} child_zone_creation: parent={}{}",
+                get_zone_color(zone_id.get_val()),
+                get_zone_name(zone_id.get_val()),
+                get_zone_name(parent_zone_id.get_val()),
+                reset_color());
+
+        // Track the parent-child relationship
+        {
+            std::unique_lock<std::shared_mutex> lock(zone_children_mutex_);
+            zone_children_[parent_zone_id.get_val()].insert(zone_id.get_val());
+        }
+        {
+            std::unique_lock<std::shared_mutex> lock(zone_parents_mutex_);
+            zone_parents_[zone_id.get_val()] = parent_zone_id.get_val();
+        }
+        // Print topology diagram after each service creation
+        print_topology_diagram();
+    }
+
+    void console_telemetry_service::print_topology_diagram() const
+    {
+        init_logger();
+        logger_->info("{}=== TOPOLOGY DIAGRAM ==={}", get_level_color(level_enum::info), reset_color());
+
+        std::shared_lock<std::shared_mutex> names_lock(zone_names_mutex_);
+        if (zone_names_.empty())
+        {
+            logger_->info("{}No zones registered yet{}", get_level_color(level_enum::info), reset_color());
+            return;
+        }
+
+        // Find root zones (zones with no parent)
+        std::set<uint64_t> root_zones;
+        {
+            std::shared_lock<std::shared_mutex> parents_lock(zone_parents_mutex_);
+            for (const auto& zone_pair : zone_names_)
+            {
+                uint64_t zone_id = zone_pair.first;
+                if (zone_parents_.find(zone_id) == zone_parents_.end() || zone_parents_.at(zone_id) == 0)
+                {
+                    root_zones.insert(zone_id);
+                }
+            }
+        }
+
+        if (root_zones.empty())
+        {
+            // No parent-child relationships tracked yet, show flat list
+            logger_->info("{}Active Zones (no hierarchy tracked yet):{}", get_level_color(level_enum::info), reset_color());
+            for (const auto& zone_pair : zone_names_)
+            {
+                uint64_t zone_id = zone_pair.first;
+                const std::string& zone_name = zone_pair.second;
+                logger_->info("{}  Zone {}: {}{}", get_zone_color(zone_id), zone_id, zone_name, reset_color());
+            }
+        }
+        else
+        {
+            // Show hierarchical structure
+            logger_->info("{}Zone Hierarchy:{}", get_level_color(level_enum::info), reset_color());
+            for (uint64_t root_zone : root_zones)
+            {
+                print_zone_tree(root_zone, 0);
+            }
+        }
+
+        logger_->info("{}========================={}", get_level_color(level_enum::info), reset_color());
+    }
+
+    void console_telemetry_service::print_zone_tree(uint64_t zone_id, int depth) const
+    {
+        std::string indent(depth * 2, ' ');
+        std::string branch = (depth > 0) ? "├─ " : "";
+
+        std::string zone_name;
+        {
+            std::shared_lock<std::shared_mutex> names_lock(zone_names_mutex_);
+            auto zone_name_it = zone_names_.find(zone_id);
+            zone_name = (zone_name_it != zone_names_.end()) ? zone_name_it->second : "unknown";
+        }
+
+        logger_->info("{}{}{}{}Zone {}: {} {}{}",
+            get_level_color(level_enum::info),
+            indent,
+            branch,
+            reset_color(),
+            get_zone_color(zone_id),
+            zone_id,
+            zone_name,
+            reset_color());
+
+        // Print children
+        std::shared_lock<std::shared_mutex> children_lock(zone_children_mutex_);
+        auto children_it = zone_children_.find(zone_id);
+        if (children_it != zone_children_.end())
+        {
+            for (uint64_t child_zone : children_it->second)
+            {
+                print_zone_tree(child_zone, depth + 1);
+            }
+        }
+    }
+
+    void console_telemetry_service::on_service_deletion(rpc::zone zone_id) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} service_deletion{}", get_zone_color(zone_id.get_val()), get_zone_name(zone_id.get_val()), reset_color());
+    }
+
+    void console_telemetry_service::on_service_try_cast(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_try_cast: destination_zone={} caller_zone={} object_id={} interface_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_add_ref(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::object object_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::add_ref_options options) const
+    {
+        init_logger();
+        logger_->info("{}{} service_add_ref: destination_zone={} object_id={} "
+                      "caller_zone={} options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            get_zone_name(caller_zone_id.get_val()),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_release(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::object object_id,
+        rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_release: destination_zone={} object_id={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_send(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} service_send: destination_zone={} caller_zone={} object_id={} interface_id={} method_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_post(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_post: destination_zone={} caller_zone={} object_id={} interface_id={} method_id={} "
+                      "{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_object_released(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_object_released: destination_zone={} caller_zone={} object_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_transport_down(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_transport_down: destination_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_creation(const std::string& service_name,
+        const std::string& service_proxy_name,
+        rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id) const
+    {
+        std::string uppercase_name(service_proxy_name);
+        capitalise(uppercase_name);
+        register_zone_name(zone_id.get_val(), service_name, true);
+        register_zone_name(destination_zone_id.get_val(), service_proxy_name, true);
+        init_logger();
+        logger_->info("{}{} service_proxy_creation: name=[{}] destination_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            uppercase_name,
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_cloned_service_proxy_creation(const std::string& service_name,
+        const std::string& service_proxy_name,
+        rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id) const
+    {
+        std::string uppercase_name(service_proxy_name);
+        capitalise(uppercase_name);
+        register_zone_name(zone_id.get_val(), service_name, true);
+        register_zone_name(destination_zone_id.get_val(), service_proxy_name, true);
+        init_logger();
+        logger_->info("{}{} cloned_service_proxy_creation: name=[{}] destination_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            uppercase_name,
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_deletion(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_deletion: destination_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_try_cast(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_try_cast: destination_zone={} caller_zone={} object_id={} interface_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_add_ref(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::add_ref_options options) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_add_ref: destination_zone={} caller_zone={} "
+                      "object_id={} options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_release(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_release: destination_zone={} caller_zone={} object_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_add_external_ref(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_add_external_ref: destination_zone={} "
+                      "caller_zone={} ref_count={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            ref_count,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_release_external_ref(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_release_external_ref: destination_zone={} "
+                      "caller_zone={} ref_count={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            ref_count,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_impl_creation(const std::string& name, uint64_t address, rpc::zone zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} impl_creation: name={} address={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            name,
+            address,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_impl_deletion(uint64_t address, rpc::zone zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} impl_deletion: address={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            address,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_stub_creation(rpc::zone zone_id, rpc::object object_id, uint64_t address) const
+    {
+        init_logger();
+        logger_->info("{}{} stub_creation: object_id={} address={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            object_id.get_val(),
+            address,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_stub_deletion(rpc::zone zone_id, rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} stub_deletion: object_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_stub_send(
+        rpc::zone zone_id, rpc::object object_id, rpc::interface_ordinal interface_id, rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} stub_send: object_id={} interface_id={} method_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_stub_add_ref(rpc::zone zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        uint64_t count,
+        rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} stub_add_ref: object_id={} interface_id={} count={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            count,
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_stub_release(rpc::zone zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        uint64_t count,
+        rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} stub_release: object_id={} interface_id={} count={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            count,
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_object_proxy_creation(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::object object_id, bool add_ref_done) const
+    {
+        init_logger();
+        logger_->info("{}{} object_proxy_creation: destination_zone={} object_id={} add_ref_done={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            (add_ref_done ? "true" : "false"),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_object_proxy_deletion(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} object_proxy_deletion: destination_zone={} object_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_interface_proxy_creation(const std::string& name,
+        rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} interface_proxy_creation: name={} destination_zone={} object_id={} interface_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            name,
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_interface_proxy_deletion(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} interface_proxy_deletion: destination_zone={} object_id={} interface_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_interface_proxy_send(const std::string& method_name,
+        rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} interface_proxy_send: method_name={} destination_zone={} object_id={} interface_id={} method_id={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            method_name,
+            get_zone_name(destination_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::message(level_enum level, const std::string& message) const
+    {
+#if defined(CANOPY_USE_THREAD_LOCAL_LOGGING) && !defined(_IN_ENCLAVE)
+        // Also log to thread-local circular buffer for debugging
+        rpc::telemetry_to_thread_local_buffer(level, message);
+#endif
+
+        const char* level_str;
+        switch (level)
+        {
+        case debug:
+            level_str = "DEBUG";
+            break;
+        case trace:
+            level_str = "TRACE";
+            break;
+        case info:
+            level_str = "INFO";
+            break;
+        case warn:
+            level_str = "WARN";
+            break;
+        case err:
+            level_str = "ERROR";
+            break;
+        case critical:
+            level_str = "CRITICAL";
+            break;
+        case off:
+            return;
+        default:
+            level_str = "UNKNOWN";
+            break;
+        }
+
+        init_logger();
+        std::string level_color = get_level_color(level);
+        if (!level_color.empty())
+        {
+            logger_->info("{}{} {}{}", level_color, level_str, message, reset_color());
+        }
+        else
+        {
+            logger_->info("{} {}", level_str, message);
+        }
+    }
+
+    void console_telemetry_service::on_transport_creation(
+        const std::string& name, rpc::zone zone_id, rpc::zone adjacent_zone_id, rpc::transport_status status) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_creation: name={} adjacent_zone={} status={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            name,
+            get_zone_name(adjacent_zone_id.get_val()),
+            static_cast<int>(status),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_deletion(rpc::zone zone_id, rpc::zone adjacent_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_deletion: adjacent_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_status_change(const std::string& name,
+        rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::transport_status old_status,
+        rpc::transport_status new_status) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_status_change: name={} adjacent_zone={} old_status={} new_status={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            name,
+            get_zone_name(adjacent_zone_id.get_val()),
+            static_cast<int>(old_status),
+            static_cast<int>(new_status),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_add_destination(
+        rpc::zone zone_id, rpc::zone adjacent_zone_id, rpc::destination_zone destination, rpc::caller_zone caller) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_add_destination: adjacent_zone={} destination={} caller={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            destination.get_val(),
+            caller.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_remove_destination(
+        rpc::zone zone_id, rpc::zone adjacent_zone_id, rpc::destination_zone destination, rpc::caller_zone caller) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_remove_destination: adjacent_zone={} destination={} caller={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            destination.get_val(),
+            caller.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_pass_through_creation(rpc::zone zone_id,
+        rpc::destination_zone forward_destination,
+        rpc::destination_zone reverse_destination,
+        uint64_t shared_count,
+        uint64_t optimistic_count) const
+    {
+        init_logger();
+        logger_->info("{}{} pass_through_creation: forward_destination={} reverse_destination={} shared_count={} "
+                      "optimistic_count={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(forward_destination.get_val()),
+            get_zone_name(reverse_destination.get_val()),
+            shared_count,
+            optimistic_count,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_pass_through_deletion(
+        rpc::zone zone_id, rpc::destination_zone forward_destination, rpc::destination_zone reverse_destination) const
+    {
+        init_logger();
+        logger_->info("{}{} pass_through_deletion: forward_destination={} reverse_destination={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(forward_destination.get_val()),
+            get_zone_name(reverse_destination.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_pass_through_add_ref(rpc::zone zone_id,
+        rpc::destination_zone forward_destination,
+        rpc::destination_zone reverse_destination,
+        rpc::add_ref_options options,
+        int64_t shared_delta,
+        int64_t optimistic_delta) const
+    {
+        init_logger();
+        logger_->info("{}{} pass_through_add_ref: forward_destination={} reverse_destination={} options={} "
+                      "shared_delta={} optimistic_delta={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(forward_destination.get_val()),
+            get_zone_name(reverse_destination.get_val()),
+            static_cast<int>(options),
+            shared_delta,
+            optimistic_delta,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_pass_through_release(rpc::zone zone_id,
+        rpc::destination_zone forward_destination,
+        rpc::destination_zone reverse_destination,
+        int64_t shared_delta,
+        int64_t optimistic_delta) const
+    {
+        init_logger();
+        logger_->info("{}{} pass_through_release: forward_destination={} reverse_destination={} shared_delta={} "
+                      "optimistic_delta={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(forward_destination.get_val()),
+            get_zone_name(reverse_destination.get_val()),
+            shared_delta,
+            optimistic_delta,
+            reset_color());
+    }
+
+    void console_telemetry_service::on_pass_through_status_change(rpc::zone zone_id,
+        rpc::destination_zone forward_destination,
+        rpc::destination_zone reverse_destination,
+        rpc::transport_status forward_status,
+        rpc::transport_status reverse_status) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} pass_through_status_change: forward_destination={} reverse_destination={} forward_status={} "
+            "reverse_status={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(forward_destination.get_val()),
+            get_zone_name(reverse_destination.get_val()),
+            static_cast<int>(forward_status),
+            static_cast<int>(reverse_status),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_send(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_send: dest_zone={} caller_zone={} object={} interface={} method={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_post(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_post: dest_zone={} caller_zone={} object={} interface={} method={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_object_released(rpc::zone zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_object_released: dest_zone={} caller_zone={} object={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_service_proxy_transport_down(
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} service_proxy_transport_down: dest_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_send(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_send:  adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={} method={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_post(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_post: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={} method={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_try_cast(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_try_cast: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_add_ref(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::add_ref_options options) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_add_ref: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_release(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::release_options options) const
+    {
+        init_logger();
+
+        logger_->info("{}{} transport_outbound_release: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_object_released(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_object_released: adjacent_zone={} dest_zone={} caller_zone={} "
+                      "object={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_outbound_transport_down(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_outbound_transport_down: adjacent_zone={} dest_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_send(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_inbound_send: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={} method={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_post(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id,
+        rpc::method method_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_inbound_post: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={} method={} {}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            method_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_try_cast(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::interface_ordinal interface_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_inbound_try_cast: adjacent_zone={} dest_zone={} caller_zone={} object={} "
+                      "interface={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            interface_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_add_ref(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::add_ref_options options) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} transport_inbound_add_ref: adjacent_zone={} dest_zone={} caller_zone={} object={} options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_release(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id,
+        rpc::release_options options) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} transport_inbound_release: adjacent_zone={} dest_zone={} caller_zone={} object={} options={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            static_cast<int>(options),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_object_released(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id,
+        rpc::object object_id) const
+    {
+        init_logger();
+        logger_->info(
+            "{}{} transport_inbound_object_released: adjacent_zone={} dest_zone={} caller_zone={} object={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            object_id.get_val(),
+            reset_color());
+    }
+
+    void console_telemetry_service::on_transport_inbound_transport_down(rpc::zone zone_id,
+        rpc::zone adjacent_zone_id,
+        rpc::destination_zone destination_zone_id,
+        rpc::caller_zone caller_zone_id) const
+    {
+        init_logger();
+        logger_->info("{}{} transport_inbound_transport_down: adjacent_zone={} dest_zone={} caller_zone={}{}",
+            get_zone_color(zone_id.get_val()),
+            get_zone_name(zone_id.get_val()),
+            get_zone_name(adjacent_zone_id.get_val()),
+            get_zone_name(destination_zone_id.get_val()),
+            get_zone_name(caller_zone_id.get_val()),
+            reset_color());
+    }
+}

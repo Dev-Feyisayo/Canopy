@@ -1,0 +1,525 @@
+/*
+ *   Copyright (c) 2026 Edward Boggis-Rolfe
+ *   All rights reserved.
+ */
+
+namespace rpc
+{
+    //note R^ notation is a way to trick they syntax highlighter to not realise it is a multiline comment
+    #cpp_quote(R^__(
+    // the route to all fingerprinting if your type has been through the idl generator a specialised template version of
+    // this static functor class will be made allowing you to get the unique id of this type used for serialisation identification
+    template<typename T> class id
+    {
+        // not implemented here! only in concrete derivations
+        // static constexpr uint64_t get(rpc_version)
+    };
+    )__^)
+
+    enum encoding : uint64_t
+    {
+        yas_binary = 1,
+        yas_compressed_binary = 2,
+        //yas_text = 4,     //not really needed
+        yas_json = 8,       //we may have different json parsers that have a better implementation e.g. glaze
+        protocol_buffers = 16,
+        // flat_buffers = 32,
+        // mpi = 64
+    };
+
+    enum add_ref_options : uint8_t
+    {
+        normal = 0,
+        // when unidirectionally addreffing the destination
+        build_destination_route = 1,
+        // when unidirectionally addreffing the caller which prepares refcounts etc in the reverse direction
+        build_caller_route = 2,
+        // when the add_ref is from optimistic_ptr reference (assumed shared if not set)
+        optimistic = 4
+    };
+
+    #cpp_quote(R^__(
+    inline add_ref_options operator|(add_ref_options lhs, add_ref_options rhs)
+    {
+        return static_cast<add_ref_options>(static_cast<std::underlying_type<add_ref_options>::type>(lhs)
+                                            | static_cast<std::underlying_type<add_ref_options>::type>(rhs));
+    }
+    inline add_ref_options operator&(add_ref_options lhs, add_ref_options rhs)
+    {
+        return static_cast<add_ref_options>(static_cast<std::underlying_type<add_ref_options>::type>(lhs)
+                                            & static_cast<std::underlying_type<add_ref_options>::type>(rhs));
+    }
+    inline add_ref_options operator^(add_ref_options lhs, add_ref_options rhs)
+    {
+        return static_cast<add_ref_options>(static_cast<std::underlying_type<add_ref_options>::type>(lhs)
+                                            ^ static_cast<std::underlying_type<add_ref_options>::type>(rhs));
+    }
+
+    inline add_ref_options operator~(add_ref_options lhs)
+    {
+        return static_cast<add_ref_options>(~static_cast<std::underlying_type<add_ref_options>::type>(lhs));
+    }
+
+    inline bool operator!(add_ref_options e)
+    {
+        return e == static_cast<add_ref_options>(0);
+    }
+    )__^)    
+
+    enum release_options : uint8_t
+    {
+        normal = 0,
+        // when the release is from optimistic_ptr reference (assumed shared if not set)
+        optimistic = 1
+    };
+
+    #cpp_quote(R^__(
+    inline release_options operator|(release_options lhs, release_options rhs)
+    {
+        return static_cast<release_options>(static_cast<std::underlying_type<release_options>::type>(lhs)
+                                            | static_cast<std::underlying_type<release_options>::type>(rhs));
+    }
+    inline release_options operator&(release_options lhs, release_options rhs)
+    {
+        return static_cast<release_options>(static_cast<std::underlying_type<release_options>::type>(lhs)
+                                            & static_cast<std::underlying_type<release_options>::type>(rhs));
+    }
+    inline release_options operator^(release_options lhs, release_options rhs)
+    {
+        return static_cast<release_options>(static_cast<std::underlying_type<release_options>::type>(lhs)
+                                            ^ static_cast<std::underlying_type<release_options>::type>(rhs));
+    }
+
+    inline release_options operator~(release_options lhs)
+    {
+        return static_cast<release_options>(~static_cast<std::underlying_type<release_options>::type>(lhs));
+    }
+
+    inline bool operator!(release_options e)
+    {
+        return e == static_cast<release_options>(0);
+    }
+    )__^)    
+
+    // Back-channel entry for marshalling reference-counted objects across zones
+    [no_fingerprint]
+    struct back_channel_entry
+    {
+        uint64_t type_id;
+        std::vector<uint8_t> payload;
+    };
+
+
+    #cpp_quote(R^__(
+    struct zone;
+    struct destination_zone;
+    struct operating_zone;
+    struct caller_zone;
+    struct known_direction_zone;
+    )__^)
+
+
+
+
+    struct zone
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+    #cpp_quote(R^__(
+        zone() = default;
+        zone(const zone&) = default;
+        zone(zone&&) noexcept = default;
+        zone(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        zone& operator=(const zone&) = default;
+        zone& operator=(zone&&) noexcept = default;
+        zone& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const zone& lhs, const zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const zone& lhs, const zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(const zone& val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+
+        inline destination_zone as_destination() const;
+        inline caller_zone as_caller() const;
+        inline known_direction_zone as_known_direction_zone() const;
+            )__^)
+
+    };
+
+    struct destination_zone
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+    #cpp_quote(R^__(
+        destination_zone() = default;
+        destination_zone(const destination_zone&) = default;
+        destination_zone(destination_zone&&) noexcept = default;
+        destination_zone(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        destination_zone& operator=(const destination_zone&) = default;
+        destination_zone& operator=(destination_zone&&) noexcept = default;
+        destination_zone& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const destination_zone& lhs, const destination_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const destination_zone& lhs, const destination_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(const destination_zone& val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+
+        inline zone as_zone() const;
+        inline caller_zone as_caller() const;
+            )__^)
+    };
+
+    // the zone that initiated the call
+    struct caller_zone
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+    #cpp_quote(R^__(
+        caller_zone() = default;
+        caller_zone(const caller_zone&) = default;
+        caller_zone(caller_zone&&) noexcept = default;
+        caller_zone(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        caller_zone& operator=(const caller_zone&) = default;
+        caller_zone& operator=(caller_zone&&) noexcept = default;
+        caller_zone& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const caller_zone& lhs, const caller_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const caller_zone& lhs, const caller_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(const caller_zone& val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+
+        inline destination_zone as_destination() const;
+        inline known_direction_zone as_known_direction_zone() const;
+            )__^)
+    };
+
+    struct known_direction_zone
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+     #cpp_quote(R^__(
+       known_direction_zone() = default;
+        known_direction_zone(const known_direction_zone&) = default;
+        known_direction_zone(known_direction_zone&&) noexcept = default;
+        known_direction_zone(zone z) noexcept
+            : id(z.get_val())
+        {
+        }
+        known_direction_zone(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        known_direction_zone& operator=(const known_direction_zone&) = default;
+        known_direction_zone& operator=(known_direction_zone&&) noexcept = default;
+        known_direction_zone& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const known_direction_zone& lhs, const known_direction_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const known_direction_zone& lhs, const known_direction_zone& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(const known_direction_zone& val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+
+        inline destination_zone as_destination() const;
+            )__^)
+    };
+
+    // an id for objects unique to each zone
+    struct object
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+     #cpp_quote(R^__(
+       object() = default;
+        object(const object&) = default;
+        object(object&&) noexcept = default;
+        object(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        object& operator=(const object&) = default;
+        object& operator=(object&&) noexcept = default;
+        object& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const object& lhs, const object& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const object& lhs, const object& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(object val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+            )__^)
+    };
+
+    // an id for interfaces
+    struct interface_ordinal // cant use the name interface
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+      #cpp_quote(R^__(
+      interface_ordinal() = default;
+        interface_ordinal(const interface_ordinal&) = default;
+        interface_ordinal(interface_ordinal&&) noexcept = default;
+        interface_ordinal(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        interface_ordinal& operator=(const interface_ordinal&) = default;
+        interface_ordinal& operator=(interface_ordinal&&) noexcept = default;
+        interface_ordinal& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const interface_ordinal& lhs, const interface_ordinal& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const interface_ordinal& lhs, const interface_ordinal& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(interface_ordinal val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+            )__^)
+    };
+
+    // an id for method ordinals
+    struct method
+    {
+    private:
+        uint64_t id = 0;
+
+    public:
+     #cpp_quote(R^__(
+       method() = default;
+        method(const method&) = default;
+        method(method&&) noexcept = default;
+        method(uint64_t initial_id)
+            : id(initial_id)
+        {
+        }
+        method& operator=(const method&) = default;
+        method& operator=(method&&) noexcept = default;
+        method& operator=(uint64_t other)
+        {
+            id = other;
+            return *this;
+        }
+
+        uint64_t get_val() const { return id; }
+
+        // compare
+        friend inline bool operator==(const method& lhs, const method& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator==(T val) const
+        {
+            return id == static_cast<uint64_t>(val);
+        }
+        friend inline bool operator!=(const method& lhs, const method& rhs);
+        template<typename T, std::enable_if_t<std::is_unsigned<T>::value, int> = 0>
+        constexpr bool operator!=(T val) const
+        {
+            return id != static_cast<uint64_t>(val);
+        }
+
+        // less
+        constexpr bool operator<(uint64_t val) const { return id < val; }
+        constexpr bool operator<(method val) const { return id < val.id; }
+
+        constexpr bool is_set() const noexcept { return id != 0; }
+            )__^)
+    };
+
+    #cpp_quote(R^__(
+    // converters
+    destination_zone zone::as_destination() const
+    {
+        return destination_zone(id);
+    }
+    caller_zone zone::as_caller() const
+    {
+        return caller_zone(id);
+    }
+
+    known_direction_zone zone::as_known_direction_zone() const
+    {
+        return known_direction_zone(id);
+    }
+
+    zone destination_zone::as_zone() const
+    {
+        return zone(id);
+    }
+
+    caller_zone destination_zone::as_caller() const
+    {
+        return caller_zone(id);
+    }
+
+    destination_zone caller_zone::as_destination() const
+    {
+        return destination_zone(id);
+    }
+
+    known_direction_zone caller_zone::as_known_direction_zone() const
+    {
+        return known_direction_zone(id);
+    }
+
+    destination_zone known_direction_zone::as_destination() const
+    {
+        return destination_zone(id);
+    }
+    )__^)
+
+    struct interface_descriptor
+    {
+        object object_id;
+        destination_zone destination_zone_id;
+    };
+
+    struct function_info
+    {
+        std::string full_name;
+        std::string name;
+        method id;
+        uint64_t tag;
+        bool marshalls_interfaces;
+        std::string description;
+        std::string in_json_schema;
+        std::string out_json_schema;
+    };
+}

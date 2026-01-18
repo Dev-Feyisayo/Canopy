@@ -1,0 +1,2 @@
+WarningsAsErrors: 'readability-isolate-declaration,  cppcoreguidelines-init-variables'
+Checks: '-*,misc-non-private-member-variables-in-classes'
