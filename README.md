@@ -75,7 +75,12 @@ Comprehensive documentation is available in the [documents/](documents/) directo
 # Clone and configure
 git clone https://github.com/edwardbr/Canopy.git
 cd Canopy
+
+# Choose Blocking 
 cmake --preset Debug
+
+# Or Coroutines
+cmake --preset Coroutine_Debug
 
 # Build core library
 cmake --build build_debug --target rpc
