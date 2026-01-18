@@ -16,7 +16,7 @@ All rights reserved.
 
 Canopy enables type-safe communication across execution contexts including in-process calls, inter-process communication, remote machines, embedded devices, and secure enclaves (SGX).
 
-Note this is in Beta and is in active development
+Note this is in Beta including the documentation and is in active development
 
 ---
 
