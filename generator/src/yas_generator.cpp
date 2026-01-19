@@ -456,7 +456,7 @@ namespace yas_generator
                 interface_name + "::proxy_serialiser<rpc::serialiser::yas, rpc::encoding>::",
                 function,
                 has_inparams,
-                ", rpc::encoding __rpc_enc",
+                ", [[maybe_unused]] rpc::encoding __rpc_enc",
                 false));
         proxy("{{");
 
@@ -534,7 +534,7 @@ namespace yas_generator
                 interface_name + "::proxy_deserialiser<rpc::serialiser::yas, rpc::encoding>::",
                 function,
                 has_inparams,
-                ", rpc::encoding __rpc_enc",
+                ", [[maybe_unused]] rpc::encoding __rpc_enc",
                 false));
         proxy("{{");
 
@@ -628,7 +628,7 @@ namespace yas_generator
                 interface_name + "::stub_deserialiser<rpc::serialiser::yas, rpc::encoding>::",
                 function,
                 has_outparams,
-                ", rpc::encoding __rpc_enc",
+                ", [[maybe_unused]] rpc::encoding __rpc_enc",
                 false));
         stub("{{");
 
@@ -719,7 +719,7 @@ namespace yas_generator
                 interface_name + "::stub_serialiser<rpc::serialiser::yas, rpc::encoding>::",
                 function,
                 has_outparams,
-                ", rpc::encoding __rpc_enc",
+                ", [[maybe_unused]] rpc::encoding __rpc_enc",
                 false));
         stub("{{");
 

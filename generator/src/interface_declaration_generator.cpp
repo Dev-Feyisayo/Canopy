@@ -455,7 +455,7 @@ namespace interface_declaration_generator
             header.raw(", ");
             count++;
         }
-        header.raw("const rpc::span& __rpc_data");
+        header.raw("[[maybe_unused]] const rpc::span& __rpc_data");
         header.raw(additional_params);
         if (include_variadics)
             header.raw(", __Args... __args");
@@ -493,7 +493,7 @@ namespace interface_declaration_generator
             header.raw(", ");
             count++;
         }
-        header.raw("const rpc::span& __rpc_data");
+        header.raw("[[maybe_unused]] const rpc::span& __rpc_data");
         header.raw(additional_params);
         if (include_variadics)
             header.raw(", __Args... __args");

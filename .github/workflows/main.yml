@@ -27,8 +27,16 @@ jobs:
             fi
           fi
       - name: CMake configure
-        run: cmake -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/clang -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++ --preset=Coroutine_Debug
+        run: cmake -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/clang -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++ --preset=Debug
       - name: Build
-        run: cmake --build build
+        run: cmake --build build_debug
       - name: Test
-        run: cd build/output/debug && ./rpc_test
+        working-directory: build_debug/output
+        run: ./rpc_test
+      - name: CMake configure
+        run: cmake -DCMAKE_C_COMPILER:FILEPATH=/usr/bin/clang -DCMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++ --preset=Release
+      - name: Build
+        run: cmake --build build_release
+      - name: Test
+        working-directory: build_release/output
+        run: ./rpc_test
