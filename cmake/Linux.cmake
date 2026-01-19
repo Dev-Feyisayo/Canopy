@@ -93,10 +93,31 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
       -Wno-implicit-exception-spec-mismatch
       # Extra checks
       -Wnon-virtual-dtor
-      -Wdelete-non-virtual-dtor)
+      -Wdelete-non-virtual-dtor
+      # Modern C++ best practices
+      -Winconsistent-missing-override # Catch missing override keywords
+      -Wimplicit-fallthrough # Require [[fallthrough]] in switch
+      -Wunused-lambda-capture # Catch unused lambda captures
+      -Wrange-loop-analysis # Catch inefficient range loops
+      -Wconditional-uninitialized # Catch potentially uninitialized vars
+      -Wmove # Catch suspicious std::move usage
+      -Wunreachable-code # Catch unreachable code
+      -Wcast-align # Warn about alignment-increasing casts
+      -Wformat-security # Catch format string vulnerabilities
+      -Wnull-dereference # Catch potential null dereferences
+  )
 else()
   # GCC
-  set(CANOPY_CLANG_WARNS -Wno-variadic-macros -Wno-gnu-zero-variadic-macro-arguments -Wno-c++20-extensions)
+  set(CANOPY_CLANG_WARNS
+      -Wno-variadic-macros
+      -Wno-gnu-zero-variadic-macro-arguments
+      -Wno-c++20-extensions
+      # GCC equivalents where available
+      -Wsuggest-override # GCC equivalent of -Winconsistent-missing-override
+      -Wimplicit-fallthrough=5 # Highest level fallthrough warnings
+      -Wunused # Catch unused variables/functions
+      -Wformat-security # Format string security
+  )
 endif()
 
 # ######################################################################################################################
@@ -110,12 +131,22 @@ set(CANOPY_WARN_BASELINE
     -Wno-variadic-macros # needed by yas
 )
 
-set(CANOPY_WARN_PEDANTIC -DCANOPY_WARN_PEDANTIC ${CANOPY_WARN_BASELINE} -Wpedantic)
+# Pedantic warnings - for maximum strictness (use in generator and pure code)
+set(CANOPY_WARN_PEDANTIC
+    -DCANOPY_WARN_PEDANTIC
+    ${CANOPY_WARN_BASELINE}
+    -Wpedantic # be pedantic
+    -Wsign-conversion # Warn on implicit sign conversions
+    -Wconversion # Warn on implicit type conversions
+    -Wfloat-conversion # Warn on float conversions
+    -Wdouble-promotion # Warn when float promoted to double
+)
 
+# Additional type safety warnings (optional, can be added selectively)
 set(CANOPY_WARN_SIGN_CONVERSION -Wsign-conversion)
-
 set(CANOPY_WARN_TYPE_SIZES -Wshorten-64-to-32 -Wsign-compare -Wshift-sign-overflow)
 
+# Standard warnings for most code (tests, transports, etc.)
 set(CANOPY_WARN_OK
     -DCANOPY_WARN_OK
     ${CANOPY_WARN_BASELINE}

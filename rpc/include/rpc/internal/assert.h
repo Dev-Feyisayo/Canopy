@@ -39,7 +39,7 @@ extern "C"
 #ifdef _DEBUG
 #define RPC_ASSERT(x)                                                                                                  \
     if (!(x))                                                                                                          \
-        assert(!"error failed " #x);
+        assert(!*"error failed " #x);
 #else
 #define RPC_ASSERT(x)                                                                                                  \
     if (!(x))                                                                                                          \

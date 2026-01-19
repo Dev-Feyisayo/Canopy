@@ -6,7 +6,7 @@
 
 namespace rpc
 {
-    object_stub::object_stub(object id, const std::shared_ptr<service>& zone, void* target)
+    object_stub::object_stub(object id, const std::shared_ptr<service>& zone, [[maybe_unused]] void* target)
         : id_(id)
         , zone_(zone)
     {

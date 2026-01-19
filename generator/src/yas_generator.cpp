@@ -427,7 +427,8 @@ namespace yas_generator
                     template_count--;
                 pData++;
             }
-            template_modifier = ret.substr(template_start, pData - (ret.data() + template_start));
+            template_modifier
+                = ret.substr(template_start, static_cast<std::string::size_type>(pData - (ret.data() + template_start)));
             ret = ret.substr(0, template_start);
         }
 

@@ -78,7 +78,7 @@ static const unsigned keccakf_piln[24]
  */
 static void keccakf(uint64_t s[25])
 {
-    int i, j, round;
+    unsigned i, j, round;
     uint64_t t, bc[5];
 #define KECCAK_ROUNDS 24
 

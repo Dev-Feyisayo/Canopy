@@ -20,7 +20,7 @@ if(CANOPY_USE_TELEMETRY)
       rpc_telemetry_enclave
       PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
       PRIVATE ${CANOPY_ENCLAVE_LIBCXX_INCLUDES})
-    target_compile_options(rpc_telemetry_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+    target_compile_options(rpc_telemetry_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_PEDANTIC})
     target_link_directories(rpc_telemetry_enclave PUBLIC ${SGX_LIBRARY_PATH})
 
     if(CANOPY_ENABLE_CLANG_TIDY)
@@ -49,7 +49,7 @@ if(${CANOPY_BUILD})
     src/multiplexing_telemetry_service.cpp)
 
   target_include_directories(rpc_telemetry PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
-  target_compile_options(rpc_telemetry PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+  target_compile_options(rpc_telemetry PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_PEDANTIC})
   target_link_options(rpc_telemetry PRIVATE ${CANOPY_LINK_OPTIONS})
   target_link_directories(rpc_telemetry PUBLIC ${SGX_LIBRARY_PATH})
   target_compile_definitions(rpc_telemetry PRIVATE ${CANOPY_DEFINES})

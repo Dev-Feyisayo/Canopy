@@ -49,7 +49,7 @@ namespace rpc
         void register_zone_name(uint64_t zone_id, const std::string& name, bool optional_replace) const;
         void init_logger() const;
         void print_topology_diagram() const;
-        void print_zone_tree(uint64_t zone_id, int depth) const;
+        void print_zone_tree(uint64_t zone_id, size_t depth) const;
 
         console_telemetry_service(
             const std::string& test_suite_name, const std::string& test_name, const std::filesystem::path& directory);

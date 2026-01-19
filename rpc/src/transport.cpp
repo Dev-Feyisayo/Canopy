@@ -327,7 +327,7 @@ namespace rpc
 
     void transport::set_status(transport_status new_status)
     {
-        auto old_status = status_.load(std::memory_order_acquire);
+        [[maybe_unused]] auto old_status = status_.load(std::memory_order_acquire);
         status_.store(new_status, std::memory_order_release);
 
 #ifdef CANOPY_USE_TELEMETRY
@@ -635,7 +635,7 @@ namespace rpc
                 }
 
                 // here we
-                auto erro_code = dest_transport->add_ref(protocol_version,
+                auto error_code = CO_AWAIT dest_transport->add_ref(protocol_version,
                     destination_zone_id,
                     object_id,
                     caller_zone_id,
@@ -644,6 +644,11 @@ namespace rpc
                     reference_count,
                     in_back_channel,
                     out_back_channel);
+
+                if (error_code != error::OK())
+                {
+                    CO_RETURN error_code;
+                }
             }
             if (!dest_transport)
             {

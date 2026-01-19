@@ -72,10 +72,9 @@ namespace rpc
 
         encoding get_encoding() const { return enc_; }
 
-        uint64_t set_encoding(encoding enc)
+        void set_encoding(encoding enc)
         {
             enc_ = enc;
-            return error::OK();
         }
 
         // Set transport for this service_proxy

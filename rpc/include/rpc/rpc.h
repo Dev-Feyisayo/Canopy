@@ -13,9 +13,6 @@
 #include <rpc/internal/version.h>
 #include <rpc/internal/build_modifiers.h>
 
-#include <yas/count_streams.hpp>
-#include <yas/serialize.hpp>
-#include <yas/std_types.hpp>
 #include <rpc/rpc_types.h>
 
 #include <rpc/internal/assert.h>

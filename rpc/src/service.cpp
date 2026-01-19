@@ -9,10 +9,6 @@
 // RPC headers
 #include <rpc/rpc.h>
 
-// Other headers
-#include <yas/mem_streams.hpp>
-#include <yas/std_types.hpp>
-
 #ifdef _IN_ENCLAVE
 #include <fmt/format-inl.h>
 #else
@@ -225,6 +221,11 @@ namespace rpc
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
+        // overriden versions of this functions my have more to do with these parameters
+        std::ignore = tag;
+        std::ignore = in_back_channel;
+        std::ignore = out_back_channel;
+
 #ifdef CANOPY_USE_TELEMETRY
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
@@ -270,6 +271,19 @@ namespace rpc
         const rpc::span& in_data,
         const std::vector<rpc::back_channel_entry>& in_back_channel)
     {
+        // todo!
+        std::ignore = encoding;
+        std::ignore = caller_zone_id;
+        std::ignore = destination_zone_id;
+        std::ignore = object_id;
+        std::ignore = interface_id;
+        std::ignore = method_id;
+        std::ignore = in_data;
+
+        // overriden versions of this functions my have more to do with these parameters
+        std::ignore = tag;
+        std::ignore = in_back_channel;
+
 #ifdef CANOPY_USE_TELEMETRY
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
@@ -362,7 +376,7 @@ namespace rpc
         uint64_t temp_ref_count = 0;
         std::vector<rpc::back_channel_entry> empty_in;
         std::vector<rpc::back_channel_entry> empty_out;
-        uint64_t err_code = 0;
+        int err_code = 0;
         std::shared_ptr<rpc::i_marshaller> marshaller;
 
         if (caller_zone_id == destination_zone_id.as_caller())
@@ -429,7 +443,7 @@ namespace rpc
             destination_zone_id,
             object_id,
             caller_zone_id,
-            known_direction_zone(zone_id_),
+            zone_id_.as_known_direction_zone(),
             rpc::add_ref_options::build_destination_route | rpc::add_ref_options::build_caller_route,
             temp_ref_count,
             empty_in,
@@ -458,7 +472,6 @@ namespace rpc
     {
         if (outcall)
         {
-            rpc::casting_interface* casting_interface = nullptr;
             if (caller_zone_id.is_set() && !iface->is_local())
             {
                 CO_RETURN CO_AWAIT prepare_out_param(protocol_version, caller_zone_id, iface, descriptor);
@@ -516,6 +529,9 @@ namespace rpc
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
+        std::ignore = in_back_channel;
+        std::ignore = out_back_channel;
+
         if (destination_zone_id != zone_id_.as_destination())
         {
             RPC_ASSERT(false); // this should be going to the pass through
@@ -635,8 +651,8 @@ namespace rpc
             auto stub = weak_stub.lock();
             if (!stub)
             {
-                RPC_ASSERT(false);
                 reference_count = 0;
+                RPC_ASSERT(false);
                 CO_RETURN rpc::error::OBJECT_NOT_FOUND();
             }
 
@@ -683,7 +699,10 @@ namespace rpc
         return count;
     }
 
-    void service::cleanup_service_proxy(const std::shared_ptr<rpc::service_proxy>& other_zone) { }
+    void service::cleanup_service_proxy(const std::shared_ptr<rpc::service_proxy>& other_zone)
+    {
+        std::ignore = other_zone;
+    }
 
     CORO_TASK(int)
     service::release(uint64_t protocol_version,
@@ -695,6 +714,10 @@ namespace rpc
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
+        std::ignore = destination_zone_id;
+        std::ignore = in_back_channel;
+        std::ignore = out_back_channel;
+
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
             telemetry_service->on_service_release(zone_id_, destination_zone_id, object_id, caller_zone_id);
@@ -729,8 +752,8 @@ namespace rpc
 
             if (!stub)
             {
-                RPC_ASSERT(false);
                 reference_count = 0;
+                RPC_ASSERT(false);
                 CO_RETURN rpc::error::OBJECT_NOT_FOUND();
             }
             // this guy needs to live outside of the mutex or deadlocks may happen
@@ -768,8 +791,8 @@ namespace rpc
                         }
                         else
                         {
-                            RPC_ASSERT(false);
                             reference_count = 0;
+                            RPC_ASSERT(false);
                             CO_RETURN rpc::error::OBJECT_NOT_FOUND();
                         }
                     }
@@ -809,6 +832,7 @@ namespace rpc
         caller_zone caller_zone_id,
         const std::vector<rpc::back_channel_entry>& in_back_channel)
     {
+        std::ignore = in_back_channel;
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
@@ -838,6 +862,7 @@ namespace rpc
         caller_zone caller_zone_id,
         const std::vector<rpc::back_channel_entry>& in_back_channel)
     {
+        std::ignore = in_back_channel;
 #ifdef CANOPY_USE_TELEMETRY
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {

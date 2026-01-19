@@ -213,6 +213,7 @@ namespace rpc
     void sequence_diagram_telemetry_service::on_service_creation(
         const std::string& name, rpc::zone zone_id, rpc::destination_zone parent_zone_id) const
     {
+        std::ignore = parent_zone_id;
         std::lock_guard g(mux);
         auto entry = services.find(zone_id);
         if (entry == services.end())
@@ -827,7 +828,8 @@ namespace rpc
         std::lock_guard g(mux);
         if (historical_impls.find(address) != historical_impls.end())
         {
-            RPC_ASSERT(!"historical address reused");
+            RPC_ERROR("historical address reused");
+            RPC_ASSERT(false);
         }
         add_new_object(name, address, zone_id);
         fflush(output_);

@@ -18,7 +18,7 @@ if(${CANOPY_BUILD_ENCLAVE})
     PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include/marshalled_tests>"
     PRIVATE ${CANOPY_ENCLAVE_LIBCXX_INCLUDES})
 
-  target_compile_options(common_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_BASELINE})
+  target_compile_options(common_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_PEDANTIC})
   target_link_options(common_enclave PRIVATE ${CANOPY_ENCLAVE_LINK_OPTIONS})
 
   target_link_libraries(

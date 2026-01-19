@@ -45,7 +45,7 @@ if(CANOPY_BUILD_ENCLAVE)
     src/version.cpp)
 
   target_compile_definitions(rpc_enclave PRIVATE ${CANOPY_ENCLAVE_DEFINES})
-  target_compile_options(rpc_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+  target_compile_options(rpc_enclave PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_PEDANTIC})
   target_include_directories(
     rpc_enclave
     PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include/rpc>"
@@ -112,7 +112,7 @@ target_link_libraries(
   PUBLIC ${CANOPY_TELEMETRY_INTERFACE} ${CANOPY_TELEMETRY_SERVICE} ${CORO_RUNTIME} rpc_types_idl
   PRIVATE yas_common ${CANOPY_LIBRARIES} ${CANOPY_FMT_LIB})
 
-target_compile_options(rpc PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+target_compile_options(rpc PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_PEDANTIC})
 target_link_options(rpc PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
 target_link_directories(rpc PUBLIC ${SGX_LIBRARY_PATH})
 set_property(TARGET rpc PROPERTY COMPILE_PDB_NAME rpc)

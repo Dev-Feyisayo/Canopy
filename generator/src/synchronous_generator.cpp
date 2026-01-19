@@ -1993,6 +1993,7 @@ namespace synchronous_generator
             }
             if (has_fields)
             {
+                header("YAS_WARNINGS_PUSH");
                 header("ar & YAS_OBJECT_NVP(\"{}\"", m_ob.get_name());
 
                 for (auto& field : m_ob.get_functions())
@@ -2013,6 +2014,7 @@ namespace synchronous_generator
                     }
                 }
                 header(");");
+                header("YAS_WARNINGS_POP");
             }
 
             header("}}");

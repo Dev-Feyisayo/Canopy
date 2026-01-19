@@ -331,7 +331,7 @@ namespace rpc
         logger_->info("{}========================={}", get_level_color(level_enum::info), reset_color());
     }
 
-    void console_telemetry_service::print_zone_tree(uint64_t zone_id, int depth) const
+    void console_telemetry_service::print_zone_tree(uint64_t zone_id, size_t depth) const
     {
         std::string indent(depth * 2, ' ');
         std::string branch = (depth > 0) ? "├─ " : "";

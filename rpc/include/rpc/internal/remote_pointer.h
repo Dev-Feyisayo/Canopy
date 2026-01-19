@@ -377,7 +377,7 @@ namespace rpc
                             "decrement_shared_and_dispose_if_zero: shared_count_ was {} before decrement (now {})",
                             prev_opt,
                             shared_count_.load());
-                        RPC_ASSERT(false && "Negative shared_count_ count detected");
+                        RPC_ASSERT(!*"Negative shared_count_ count detected");
                     }
 
                     if (prev_opt == 1)
@@ -408,7 +408,7 @@ namespace rpc
                         RPC_ERROR("decrement_weak_and_destroy_if_zero: weak_count_ was {} before decrement (now {})",
                             prev_weak,
                             weak_count_.load());
-                        RPC_ASSERT(false && "Negative weak_count_ count detected");
+                        RPC_ASSERT(!*"Negative weak_count_ count detected");
                     }
 
                     if (prev_weak == 1)
@@ -465,7 +465,7 @@ namespace rpc
                             {
                                 RPC_ERROR("try_increment_optimistic rollback: optimistic_count_ was {} before rollback",
                                     prev_rollback);
-                                RPC_ASSERT(false && "Negative optimistic_count_ in rollback");
+                                RPC_ASSERT(!*"Negative optimistic_count_ in rollback");
                             }
                             decrement_weak_and_destroy_if_zero();
                             CO_RETURN err;
@@ -491,7 +491,7 @@ namespace rpc
                                   "(now {})",
                             prev,
                             optimistic_count_.load());
-                        RPC_ASSERT(false && "Negative optimistic_count_ count detected");
+                        RPC_ASSERT(!*"Negative optimistic_count_ count detected");
                     }
 
                     // If this was the last optimistic_ptr, decrement weak_count_

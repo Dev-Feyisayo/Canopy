@@ -11,10 +11,7 @@
 #include <assert.h>
 #include <array>
 
-#include <yas/count_streams.hpp>
-#include <yas/serialize.hpp>
-#include <yas/std_types.hpp>
-
+#include <rpc/internal/build_modifiers.h>
 #include <rpc/internal/types.h>
 #include <rpc/internal/error_codes.h>
 
@@ -108,23 +105,29 @@ namespace rpc
         }
 
         const uint8_t* data() const { return begin; }
-        size_t size() const { return end - begin; }
+        size_t size() const { return static_cast<size_t>(end - begin); }
     };
 
     // Size calculation functions (declared first for use in serialization)
     template<typename T> uint64_t yas_json_saved_size(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         return yas::saved_size<::yas::mem | ::yas::json | ::yas::no_header>(obj);
+        YAS_WARNINGS_POP
     }
 
     template<typename T> uint64_t yas_binary_saved_size(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         return yas::saved_size<::yas::mem | ::yas::binary | ::yas::no_header>(obj);
+        YAS_WARNINGS_POP
     }
 
     template<typename T> uint64_t compressed_yas_binary_saved_size(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         return yas::saved_size<::yas::mem | ::yas::binary | ::yas::compacted | ::yas::no_header>(obj);
+        YAS_WARNINGS_POP
     }
 
     // note that this function is here for completeness but is not efficient as it requires serialisation to get size
@@ -138,6 +141,7 @@ namespace rpc
     // Serialization functions - work with both std::vector-like containers and std::array
     template<class OutputBlob = std::vector<std::uint8_t>, typename T> OutputBlob to_yas_json(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         yas::shared_buffer yas_buffer = yas::save<::yas::mem | ::yas::json | ::yas::no_header>(obj);
 
         if constexpr (is_std_array_v<OutputBlob>)
@@ -155,10 +159,12 @@ namespace rpc
         {
             return OutputBlob(yas_buffer.data.get(), yas_buffer.data.get() + yas_buffer.size);
         }
+        YAS_WARNINGS_POP
     }
 
     template<class OutputBlob = std::vector<std::uint8_t>, typename T> OutputBlob to_yas_binary(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         yas::shared_buffer yas_buffer = yas::save<::yas::mem | ::yas::binary | ::yas::no_header>(obj);
 
         if constexpr (is_std_array_v<OutputBlob>)
@@ -176,10 +182,12 @@ namespace rpc
         {
             return OutputBlob(yas_buffer.data.get(), yas_buffer.data.get() + yas_buffer.size);
         }
+        YAS_WARNINGS_POP
     }
 
     template<class OutputBlob = std::vector<std::uint8_t>, typename T> OutputBlob to_compressed_yas_binary(const T& obj)
     {
+        YAS_WARNINGS_PUSH
         yas::shared_buffer yas_buffer = yas::save<::yas::mem | ::yas::binary | ::yas::compacted | ::yas::no_header>(obj);
 
         if constexpr (is_std_array_v<OutputBlob>)
@@ -197,6 +205,7 @@ namespace rpc
         {
             return OutputBlob(yas_buffer.data.get(), yas_buffer.data.get() + yas_buffer.size);
         }
+        YAS_WARNINGS_POP
     }
 
     // protobuf serialization using member function protobuf_serialise
@@ -253,8 +262,10 @@ namespace rpc
     {
         try
         {
+            YAS_WARNINGS_PUSH
             yas::load<yas::mem | yas::json | yas::no_header>(
                 yas::intrusive_buffer{(const char*)data.begin, (size_t)(data.end - data.begin)}, obj);
+            YAS_WARNINGS_POP
             return "";
         }
         catch (const std::exception& ex)
@@ -275,8 +286,10 @@ namespace rpc
     {
         try
         {
+            YAS_WARNINGS_PUSH
             yas::load<yas::mem | ::yas::binary | ::yas::no_header>(
                 yas::intrusive_buffer{(const char*)data.begin, (size_t)(data.end - data.begin)}, obj);
+            YAS_WARNINGS_POP
             return "";
         }
         catch (const std::exception& ex)
@@ -297,8 +310,10 @@ namespace rpc
     {
         try
         {
+            YAS_WARNINGS_PUSH
             yas::load<yas::mem | ::yas::binary | ::yas::compacted | ::yas::no_header>(
                 yas::intrusive_buffer{(const char*)data.begin, (size_t)(data.end - data.begin)}, obj);
+            YAS_WARNINGS_POP
             return "";
         }
         catch (const std::exception& ex)
