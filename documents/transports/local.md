@@ -65,18 +65,3 @@ auto ret = CO_AWAIT root_service_->connect_to_zone(
 - **Hierarchical zones**: Supports `child_service` creation
 - **Bidirectional**: parent_transport and child_transport reference each other
 
-## Local Transport Include Order
-
-**Important**: When using local transport, include `<transports/local/transport.h>` before any headers that use `rpc::local::`:
-
-```cpp
-// Correct order
-#include <transports/local/transport.h>
-#include <demo_impl.h>
-#include <rpc/rpc.h>
-
-// Incorrect - rpc::local:: may not be visible
-#include <demo_impl.h>
-#include <rpc/rpc.h>
-#include <transports/local/transport.h>
-```
