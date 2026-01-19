@@ -1,6 +1,5 @@
 #
-#   Copyright (c) 2026 Edward Boggis-Rolfe
-#   All rights reserved.
+# Copyright (c) 2026 Edward Boggis-Rolfe All rights reserved.
 #
 
 cmake_minimum_required(VERSION 3.24)
@@ -28,7 +27,8 @@ if(CANOPY_USE_TELEMETRY)
       set_target_properties(rpc_telemetry_enclave PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
     endif()
 
-    target_link_libraries(rpc_telemetry_enclave PRIVATE rpc_telemetry_edl_header_enclave yas_common rpc::rpc_enclave ${CANOPY_ENCLAVE_FMT_LIB})
+    target_link_libraries(rpc_telemetry_enclave PRIVATE rpc_telemetry_edl_header_enclave yas_common rpc::rpc_enclave
+                                                        ${CANOPY_ENCLAVE_FMT_LIB})
 
     set_property(TARGET rpc_telemetry_enclave PROPERTY COMPILE_PDB_NAME rpc_telemetry_enclave)
 
@@ -39,7 +39,8 @@ endif()
 if(${CANOPY_BUILD})
 
   message("rpc_telemetry")
-  add_library(rpc_telemetry STATIC
+  add_library(
+    rpc_telemetry STATIC
     src/animation_telemetry_service.cpp
     src/sequence_diagram_telemetry_service.cpp
     src/console_telemetry_service.cpp
@@ -52,7 +53,13 @@ if(${CANOPY_BUILD})
   target_link_options(rpc_telemetry PRIVATE ${CANOPY_LINK_OPTIONS})
   target_link_directories(rpc_telemetry PUBLIC ${SGX_LIBRARY_PATH})
   target_compile_definitions(rpc_telemetry PRIVATE ${CANOPY_DEFINES})
-  target_link_libraries(rpc_telemetry PRIVATE rpc::rpc fmt::fmt-header-only yas_common spdlog::spdlog ${CANOPY_FMT_LIB})
+  target_link_libraries(
+    rpc_telemetry
+    PRIVATE rpc::rpc
+            fmt::fmt-header-only
+            yas_common
+            spdlog::spdlog
+            ${CANOPY_FMT_LIB})
 
   add_library(rpc::rpc_telemetry ALIAS rpc_telemetry)
   set_property(TARGET rpc_telemetry PROPERTY COMPILE_PDB_NAME rpc_telemetry)

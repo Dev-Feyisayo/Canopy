@@ -21,9 +21,9 @@ if(NOT DEPENDENCIES_LOADED)
   # Prevent reloading in parent modules
   set(DEPENDENCIES_LOADED ON)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Core Build Options
-  # ##############################################################################
+  # ####################################################################################################################
   option(CANOPY_BUILD "Build host code" ON)
   option(CANOPY_BUILD_EXE "Build executable code" ON)
   option(CANOPY_BUILD_TEST "Build test code" OFF)
@@ -34,18 +34,18 @@ if(NOT DEPENDENCIES_LOADED)
   # SGX Enclave support (disabled by default - most users don't need this)
   option(CANOPY_BUILD_ENCLAVE "Build SGX enclave code" OFF)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Debug Options
-  # ##############################################################################
+  # ####################################################################################################################
   option(CANOPY_DEBUG_LEAK "Enable leak sanitizer" OFF)
   option(CANOPY_DEBUG_ADDRESS "Enable address sanitizer" OFF)
   option(CANOPY_DEBUG_THREAD "Enable thread sanitizer" OFF)
   option(CANOPY_DEBUG_UNDEFINED "Enable undefined behavior sanitizer" OFF)
   option(CANOPY_DEBUG_ALL "Enable all sanitizers" OFF)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Development Options
-  # ##############################################################################
+  # ####################################################################################################################
   option(CANOPY_ENABLE_CLANG_TIDY "Enable clang-tidy in build" OFF)
   option(CANOPY_ENABLE_CLANG_TIDY_FIX "Enable auto-fix in clang-tidy" OFF)
   option(CANOPY_ENABLE_COVERAGE "Enable code coverage" OFF)
@@ -54,9 +54,9 @@ if(NOT DEPENDENCIES_LOADED)
   option(CMAKE_VERBOSE_MAKEFILE "Verbose build step" OFF)
   option(CMAKE_RULE_MESSAGES "Verbose cmake" OFF)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Logging and Telemetry Options
-  # ##############################################################################
+  # ####################################################################################################################
   option(CANOPY_USE_LOGGING "Turn on Canopy logging" OFF)
   option(CANOPY_USE_THREAD_LOCAL_LOGGING "Turn on thread-local circular buffer logging" OFF)
   option(CANOPY_HANG_ON_FAILED_ASSERT "Hang on failed assert" OFF)
@@ -64,17 +64,17 @@ if(NOT DEPENDENCIES_LOADED)
   option(CANOPY_USE_CONSOLE_TELEMETRY "Turn on Canopy console telemetry" OFF)
   option(CANOPY_USE_TELEMETRY_RAII_LOGGING "Turn on RAII telemetry logging" OFF)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Buffer Size Configuration
-  # ##############################################################################
+  # ####################################################################################################################
   if(NOT DEFINED CANOPY_OUT_BUFFER_SIZE)
     # Default to 4KB (default page size for Windows and Linux)
     set(CANOPY_OUT_BUFFER_SIZE 0x1000)
   endif()
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Build Status Messages
-  # ##############################################################################
+  # ####################################################################################################################
   message("CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE}")
   message("CANOPY_BUILD_ENCLAVE ${CANOPY_BUILD_ENCLAVE}")
   message("CANOPY_BUILD ${CANOPY_BUILD}")
@@ -87,9 +87,9 @@ if(NOT DEPENDENCIES_LOADED)
   message("CANOPY_ENABLE_CLANG_TIDY ${CANOPY_ENABLE_CLANG_TIDY}")
   message("CANOPY_ENABLE_CLANG_TIDY_FIX ${CANOPY_ENABLE_CLANG_TIDY_FIX}")
 
-  # ##############################################################################
+  # ####################################################################################################################
   # C++ Standard Configuration
-  # ##############################################################################
+  # ####################################################################################################################
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
@@ -97,9 +97,9 @@ if(NOT DEPENDENCIES_LOADED)
 
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Output Directories
-  # ##############################################################################
+  # ####################################################################################################################
 
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
   set(CMAKE_PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
@@ -107,23 +107,25 @@ if(NOT DEPENDENCIES_LOADED)
   set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/output)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Install Location
-  # ##############################################################################
+  # ####################################################################################################################
   message(INSTALL_LOCATION ${INSTALL_LOCATION})
 
   if(DEFINED INSTALL_LOCATION)
     message(CMAKE_INSTALL_PREFIX ${INSTALL_LOCATION})
-    set(CMAKE_INSTALL_PREFIX ${INSTALL_LOCATION}
-      CACHE STRING "Override location of installation files" FORCE)
+    set(CMAKE_INSTALL_PREFIX
+        ${INSTALL_LOCATION}
+        CACHE STRING "Override location of installation files" FORCE)
   else()
-    set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install
-      CACHE STRING "Override location of installation files" FORCE)
+    set(CMAKE_INSTALL_PREFIX
+        ${CMAKE_BINARY_DIR}/install
+        CACHE STRING "Override location of installation files" FORCE)
   endif()
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Git Submodules
-  # ##############################################################################
+  # ####################################################################################################################
   find_package(Git QUIET)
   message("submodules GIT_FOUND ${GIT_FOUND}")
 
@@ -154,9 +156,9 @@ if(NOT DEPENDENCIES_LOADED)
     endif()
   endif()
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Convert Options to Compile Flags
-  # ##############################################################################
+  # ####################################################################################################################
   if(CANOPY_BUILD_TEST)
     set(CANOPY_BUILD_TEST_FLAG CANOPY_BUILD_TEST)
   else()
@@ -207,59 +209,60 @@ if(NOT DEPENDENCIES_LOADED)
 
   set(CANOPY_FMT_LIB fmt::fmt-header-only)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Shared Defines (used by both host and enclave builds, all platforms)
-  # ##############################################################################
+  # ####################################################################################################################
   set(CANOPY_SHARED_DEFINES
-    _LIB
-    NOMINMAX
-    _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS
-    ${CANOPY_USE_LOGGING_FLAG}
-    ${CANOPY_USE_THREAD_LOCAL_LOGGING_FLAG}
-    ${CANOPY_BUILD_COROUTINE_FLAG}
-    ${CANOPY_HANG_ON_FAILED_ASSERT_FLAG}
-    ${CANOPY_USE_TELEMETRY_FLAG}
-    ${CANOPY_USE_CONSOLE_TELEMETRY_FLAG}
-    ${CANOPY_USE_TELEMETRY_RAII_LOGGING_FLAG}
-    ${CANOPY_BUILD_TEST_FLAG}
-    CANOPY_OUT_BUFFER_SIZE=${CANOPY_OUT_BUFFER_SIZE}
-  )
+      _LIB
+      NOMINMAX
+      _SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS
+      ${CANOPY_USE_LOGGING_FLAG}
+      ${CANOPY_USE_THREAD_LOCAL_LOGGING_FLAG}
+      ${CANOPY_BUILD_COROUTINE_FLAG}
+      ${CANOPY_HANG_ON_FAILED_ASSERT_FLAG}
+      ${CANOPY_USE_TELEMETRY_FLAG}
+      ${CANOPY_USE_CONSOLE_TELEMETRY_FLAG}
+      ${CANOPY_USE_TELEMETRY_RAII_LOGGING_FLAG}
+      ${CANOPY_BUILD_TEST_FLAG}
+      CANOPY_OUT_BUFFER_SIZE=${CANOPY_OUT_BUFFER_SIZE})
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Include Platform-Specific Configuration
-  # ##############################################################################
+  # ####################################################################################################################
   if(WIN32)
     include(${CMAKE_CURRENT_LIST_DIR}/Windows.cmake)
   else()
     include(${CMAKE_CURRENT_LIST_DIR}/Linux.cmake)
   endif()
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Include SGX Configuration if Enabled
-  # ##############################################################################
+  # ####################################################################################################################
   if(CANOPY_BUILD_ENCLAVE)
     set(CANOPY_ENCLAVE_TARGET "SGX")
     include(${CMAKE_CURRENT_LIST_DIR}/SGX.cmake)
   endif()
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Output Configuration Summary
-  # ##############################################################################
+  # ####################################################################################################################
   message("CANOPY_DEFINES ${CANOPY_DEFINES}")
   message("CANOPY_COMPILE_OPTIONS ${CANOPY_COMPILE_OPTIONS}")
   message("CANOPY_LINK_OPTIONS ${CANOPY_LINK_OPTIONS}")
   message("CANOPY_LINK_EXE_OPTIONS ${CANOPY_LINK_EXE_OPTIONS}")
   message("CANOPY_DEBUG_OPTIONS ${CANOPY_DEBUG_OPTIONS}")
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Debug Postfix Configuration
-  # ##############################################################################
+  # ####################################################################################################################
   # Remove 'd' suffix to prevent confusion with enclave measurement logic
-  set(CMAKE_DEBUG_POSTFIX "" CACHE STRING "Adds a postfix for debug-built libraries." FORCE)
+  set(CMAKE_DEBUG_POSTFIX
+      ""
+      CACHE STRING "Adds a postfix for debug-built libraries." FORCE)
 
-  # ##############################################################################
+  # ####################################################################################################################
   # Testing Configuration
-  # ##############################################################################
+  # ####################################################################################################################
   if(CANOPY_BUILD_TEST)
     include(GoogleTest)
     enable_testing()

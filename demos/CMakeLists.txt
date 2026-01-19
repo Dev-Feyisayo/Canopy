@@ -6,6 +6,6 @@ cmake_minimum_required(VERSION 3.24)
 
 # Add server
 if(CANOPY_BUILD_COROUTINE)
-   add_subdirectory(websocket)
+  add_subdirectory(websocket)
 endif()
 add_subdirectory(comprehensive)

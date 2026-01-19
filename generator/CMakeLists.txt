@@ -29,10 +29,10 @@ target_include_directories(generator PRIVATE ${CANOPY_INCLUDES} ${CMAKE_CURRENT_
 target_link_libraries(
   generator
   PRIVATE ast_parser
-  macro_parser
-  utils
-  args::args
-  fmt::fmt-header-only)
+          macro_parser
+          utils
+          args::args
+          fmt::fmt-header-only)
 target_link_options(generator PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
 
 set_property(TARGET generator PROPERTY COMPILE_PDB_NAME generator)
@@ -42,7 +42,7 @@ if(CANOPY_ENABLE_CLANG_TIDY)
 endif()
 
 if(STRIP_DEBUG
-  OR GENERATE_DEBUG_INDEX
-  OR STRIP_AND_DELETE_SYMBOLS)
+   OR GENERATE_DEBUG_INDEX
+   OR STRIP_AND_DELETE_SYMBOLS)
   post_build_symbol_tasks(generator)
 endif()

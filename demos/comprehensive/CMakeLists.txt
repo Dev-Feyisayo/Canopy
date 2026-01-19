@@ -3,12 +3,14 @@
    All rights reserved.
 ]]
 #
-#   Comprehensive Demos CMakeLists.txt
-#   Demonstrates all major Canopy features
+# Comprehensive Demos CMakeLists.txt Demonstrates all major Canopy features
 #
 
 cmake_minimum_required(VERSION 3.24)
-project(comprehensive_demos VERSION 1.0.0 LANGUAGES CXX)
+project(
+  comprehensive_demos
+  VERSION 1.0.0
+  LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,67 +18,68 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(idl)
 
 # Find all demo source files
-file(GLOB_RECURSE DEMO_SOURCES
-    CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cpp
-)
+file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*/*.cpp)
 
-# Create executables for each demo category
-# Note: These require the generated demo.h header which is created by rpc_generator
+# Create executables for each demo category Note: These require the generated demo.h header which is created by
+# rpc_generator
 
 # Transport demos (require Coroutine_Debug for TCP and SPSC)
 add_executable(local_transport_demo src/transport/local_transport_demo.cpp)
 target_compile_definitions(local_transport_demo PRIVATE ${CANOPY_DEFINES})
 target_include_directories(
-    local_transport_demo
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    PRIVATE ${CANOPY_INCLUDES}
-)
+  local_transport_demo
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  PRIVATE ${CANOPY_INCLUDES})
 target_link_libraries(local_transport_demo PUBLIC comprehensive_idl transport_local rpc ${CANOPY_LIBRARIES})
 target_compile_options(local_transport_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 target_link_options(local_transport_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
 set_property(TARGET local_transport_demo PROPERTY COMPILE_PDB_NAME local_transport_demo)
 
-
 if(CANOPY_BUILD_COROUTINE)
-    add_executable(tcp_transport_demo src/transport/tcp_transport_demo.cpp)
-    target_compile_definitions(tcp_transport_demo PRIVATE ${CANOPY_DEFINES})
-    target_include_directories(
-        tcp_transport_demo
-        PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        PRIVATE ${CANOPY_INCLUDES} transport_tcp
-    )
-    target_link_libraries(tcp_transport_demo PUBLIC comprehensive_idl transport_local transport_tcp rpc ${CANOPY_LIBRARIES})
-    target_compile_options(tcp_transport_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
-    target_link_options(tcp_transport_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
-    set_property(TARGET tcp_transport_demo PROPERTY COMPILE_PDB_NAME tcp_transport_demo)
+  add_executable(tcp_transport_demo src/transport/tcp_transport_demo.cpp)
+  target_compile_definitions(tcp_transport_demo PRIVATE ${CANOPY_DEFINES})
+  target_include_directories(
+    tcp_transport_demo
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    PRIVATE ${CANOPY_INCLUDES} transport_tcp)
+  target_link_libraries(
+    tcp_transport_demo
+    PUBLIC comprehensive_idl
+           transport_local
+           transport_tcp
+           rpc
+           ${CANOPY_LIBRARIES})
+  target_compile_options(tcp_transport_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+  target_link_options(tcp_transport_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
+  set_property(TARGET tcp_transport_demo PROPERTY COMPILE_PDB_NAME tcp_transport_demo)
 endif()
 
-
-
 if(CANOPY_BUILD_COROUTINE)
-    add_executable(spsc_transport_demo src/transport/spsc_transport_demo.cpp)
-    target_compile_definitions(spsc_transport_demo PRIVATE ${CANOPY_DEFINES})
-    target_include_directories(
-        spsc_transport_demo
-        PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        PRIVATE ${CANOPY_INCLUDES} transport_spsc
-    )
-    target_link_libraries(spsc_transport_demo PUBLIC comprehensive_idl transport_local transport_spsc rpc ${CANOPY_LIBRARIES})
-    target_compile_options(spsc_transport_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
-    target_link_options(spsc_transport_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
-    set_property(TARGET spsc_transport_demo PROPERTY COMPILE_PDB_NAME spsc_transport_demo)
+  add_executable(spsc_transport_demo src/transport/spsc_transport_demo.cpp)
+  target_compile_definitions(spsc_transport_demo PRIVATE ${CANOPY_DEFINES})
+  target_include_directories(
+    spsc_transport_demo
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    PRIVATE ${CANOPY_INCLUDES} transport_spsc)
+  target_link_libraries(
+    spsc_transport_demo
+    PUBLIC comprehensive_idl
+           transport_local
+           transport_spsc
+           rpc
+           ${CANOPY_LIBRARIES})
+  target_compile_options(spsc_transport_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
+  target_link_options(spsc_transport_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
+  set_property(TARGET spsc_transport_demo PROPERTY COMPILE_PDB_NAME spsc_transport_demo)
 endif()
-
 
 # Serialization demo
 add_executable(serialisation_demo src/serialisation/serialisation_demo.cpp)
 target_compile_definitions(serialisation_demo PRIVATE ${CANOPY_DEFINES})
 target_include_directories(
-    serialisation_demo
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    PRIVATE ${CANOPY_INCLUDES}
-)
+  serialisation_demo
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  PRIVATE ${CANOPY_INCLUDES})
 target_link_libraries(serialisation_demo PUBLIC comprehensive_idl rpc transport_local ${CANOPY_LIBRARIES})
 target_compile_options(serialisation_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 target_link_options(serialisation_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
@@ -86,10 +89,9 @@ set_property(TARGET serialisation_demo PROPERTY COMPILE_PDB_NAME serialisation_d
 add_executable(shared_ptr_demo src/pointers/shared_ptr_demo.cpp)
 target_compile_definitions(shared_ptr_demo PRIVATE ${CANOPY_DEFINES})
 target_include_directories(
-    shared_ptr_demo
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    PRIVATE ${CANOPY_INCLUDES}
-)
+  shared_ptr_demo
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  PRIVATE ${CANOPY_INCLUDES})
 target_link_libraries(shared_ptr_demo PUBLIC comprehensive_idl rpc transport_local ${CANOPY_LIBRARIES})
 target_compile_options(shared_ptr_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 target_link_options(shared_ptr_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
@@ -97,17 +99,23 @@ target_link_options(shared_ptr_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
 add_executable(optimistic_ptr_demo src/pointers/optimistic_ptr_demo.cpp)
 target_compile_definitions(optimistic_ptr_demo PRIVATE ${CANOPY_DEFINES})
 target_include_directories(
-    optimistic_ptr_demo
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    PRIVATE ${CANOPY_INCLUDES}
-)
+  optimistic_ptr_demo
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  PRIVATE ${CANOPY_INCLUDES})
 target_link_libraries(optimistic_ptr_demo PUBLIC comprehensive_idl rpc transport_local ${CANOPY_LIBRARIES})
 target_compile_options(optimistic_ptr_demo PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 target_link_options(optimistic_ptr_demo PRIVATE ${CANOPY_LINK_EXE_OPTIONS})
 set_property(TARGET optimistic_ptr_demo PROPERTY COMPILE_PDB_NAME optimistic_ptr_demo)
 
 if(CANOPY_ENABLE_CLANG_TIDY)
-    set_target_properties(local_transport_demo tcp_transport_demo spsc_transport_demo serialisation_demo shared_ptr_demo optimistic_ptr_demo PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
+  set_target_properties(
+    local_transport_demo
+    tcp_transport_demo
+    spsc_transport_demo
+    serialisation_demo
+    shared_ptr_demo
+    optimistic_ptr_demo
+    PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}")
 endif()
 
 message(STATUS "Comprehensive demos configured")

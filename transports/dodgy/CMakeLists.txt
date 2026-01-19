@@ -10,23 +10,16 @@ if(CANOPY_BUILD_COROUTINE)
   add_subdirectory(interface)
 
   # the transport library
-  add_library(
-    transport_dodgy
-    src/transport.cpp
-  )
+  add_library(transport_dodgy src/transport.cpp)
 
   target_compile_definitions(transport_dodgy PRIVATE ${CANOPY_DEFINES})
 
   target_include_directories(
     transport_dodgy
     PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    PRIVATE ${CANOPY_INCLUDES}
-  )
+    PRIVATE ${CANOPY_INCLUDES})
 
-  target_link_libraries(
-    transport_dodgy
-    PRIVATE yas_common rpc_types_idl libcoro ${CANOPY_LIBRARIES}
-  )
+  target_link_libraries(transport_dodgy PRIVATE yas_common rpc_types_idl libcoro ${CANOPY_LIBRARIES})
 
   target_compile_options(transport_dodgy PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
   target_link_options(transport_dodgy PRIVATE ${CANOPY_LINK_EXE_OPTIONS})

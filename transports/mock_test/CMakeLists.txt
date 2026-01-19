@@ -1,22 +1,15 @@
-# Copyright (c) 2026 Edward Boggis-Rolfe
-# All rights reserved.
+# Copyright (c) 2026 Edward Boggis-Rolfe All rights reserved.
 
 # CMakeLists.txt for mock_test transport (testing only)
 cmake_minimum_required(VERSION 3.24)
 
 # Create mock_test transport library (header-only + implementation)
-add_library(mock_test_transport
-    src/transport.cpp
-)
+add_library(mock_test_transport src/transport.cpp)
 
-target_include_directories(mock_test_transport PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${PROJECT_SOURCE_DIR}/rpc/include
-)
+target_include_directories(mock_test_transport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+                                                      ${PROJECT_SOURCE_DIR}/rpc/include)
 
-target_link_libraries(mock_test_transport PUBLIC
-    rpc::rpc
-)
+target_link_libraries(mock_test_transport PUBLIC rpc::rpc)
 
 # Add compile definitions including CANOPY_DEFINES
 target_compile_definitions(mock_test_transport PRIVATE ${CANOPY_DEFINES})

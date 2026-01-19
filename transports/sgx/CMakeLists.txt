@@ -10,26 +10,18 @@ if(CANOPY_BUILD_ENCLAVE)
   add_subdirectory(edl)
 
   # Enclave service proxy library
-  add_library(
-    rpc_sgx_enclave_service_proxy
-    src/enclave_service_proxy.cpp
-    src/enclave_service_proxy.h
-  )
+  add_library(rpc_sgx_enclave_service_proxy src/enclave_service_proxy.cpp src/enclave_service_proxy.h)
 
   target_compile_definitions(rpc_sgx_enclave_service_proxy PRIVATE ${CANOPY_ENCLAVE_DEFINES})
   target_compile_options(rpc_sgx_enclave_service_proxy PRIVATE ${CANOPY_ENCLAVE_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 
   target_include_directories(
     rpc_sgx_enclave_service_proxy
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
-    PRIVATE ${CANOPY_ENCLAVE_LIBCXX_INCLUDES}
-  )
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
+    PRIVATE ${CANOPY_ENCLAVE_LIBCXX_INCLUDES})
 
-  target_link_libraries(
-    rpc_sgx_enclave_service_proxy
-    PRIVATE yas_common rpc_types_idl_enclave rpc::rpc_enclave marshal_test_edl_enclave
-  )
+  target_link_libraries(rpc_sgx_enclave_service_proxy PRIVATE yas_common rpc_types_idl_enclave rpc::rpc_enclave
+                                                              marshal_test_edl_enclave)
 
   target_link_options(rpc_sgx_enclave_service_proxy PRIVATE ${CANOPY_ENCLAVE_LINK_OPTIONS})
   set_property(TARGET rpc_sgx_enclave_service_proxy PROPERTY COMPILE_PDB_NAME rpc_sgx_enclave_service_proxy)
@@ -39,25 +31,22 @@ if(CANOPY_BUILD_ENCLAVE)
   endif()
 
   # Host service proxy library
-  add_library(
-    rpc_sgx_service_proxy
-    src/host_service_proxy.cpp
-    src/host_service_proxy.h
-  )
+  add_library(rpc_sgx_service_proxy src/host_service_proxy.cpp src/host_service_proxy.h)
 
   target_compile_definitions(rpc_sgx_service_proxy PRIVATE ${CANOPY_DEFINES})
 
   target_include_directories(
     rpc_sgx_service_proxy
-    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
-    PRIVATE ${CANOPY_INCLUDES}
-  )
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>" "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
+    PRIVATE ${CANOPY_INCLUDES})
 
   target_link_libraries(
     rpc_sgx_service_proxy
-    PRIVATE yas_common rpc_types_idl ${CANOPY_LIBRARIES} rpc::rpc marshal_test_edl
-  )
+    PRIVATE yas_common
+            rpc_types_idl
+            ${CANOPY_LIBRARIES}
+            rpc::rpc
+            marshal_test_edl)
 
   target_compile_options(rpc_sgx_service_proxy PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
   target_link_options(rpc_sgx_service_proxy PRIVATE ${CANOPY_LINK_EXE_OPTIONS})

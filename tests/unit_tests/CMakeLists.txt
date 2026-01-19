@@ -1,5 +1,4 @@
-# Copyright (c) 2026 Edward Boggis-Rolfe
-# All rights reserved.
+# Copyright (c) 2026 Edward Boggis-Rolfe All rights reserved.
 
 # CMakeLists.txt for unit tests
 

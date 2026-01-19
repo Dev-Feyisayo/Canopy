@@ -4,9 +4,14 @@
 ]]
 cmake_minimum_required(VERSION 3.24)
 
-add_executable(rpc_test main.cpp type_test_local_suite.cpp remote_type_test_suite.cpp hierachical_transport_tests.cpp
+add_executable(
+  rpc_test
+  main.cpp
+  type_test_local_suite.cpp
+  remote_type_test_suite.cpp
+  hierachical_transport_tests.cpp
   # uncomment this
-  # post_functionality_test_suite.cpp 
+  # post_functionality_test_suite.cpp
   ${COROUTINE_TESTS})
 
 target_compile_definitions(rpc_test PRIVATE ${CANOPY_DEFINES})
@@ -14,7 +19,7 @@ target_compile_definitions(rpc_test PRIVATE ${CANOPY_DEFINES})
 target_include_directories(
   rpc_test
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/include>"
-  "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/src>"
+         "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated/src>"
   PRIVATE ${CANOPY_INCLUDES})
 
 if(CANOPY_BUILD_ENCLAVE)
@@ -33,32 +38,32 @@ endif()
 target_link_libraries(
   rpc_test
   PUBLIC common
-  example_idl
-  example_import_idl
-  example_shared_idl
-  -Wl,--whole-archive
-  test_fixtures
-  -Wl,--no-whole-archive
-  yas_common
-  rpc::rpc
-  transport_direct_test
-  transport_local
-  transport_local_test
-  ${SGX_TRANSPORT_TEST_LIB}
-  ${SPSC_TRANSPORT_LIB}
-  ${TCP_TRANSPORT_LIB}
-  ${SPSC_TRANSPORT_TEST_LIB}
-  ${TCP_TRANSPORT_TEST_LIB}
-  yas_common
-  args::args
-  fmt::fmt-header-only
-  GTest::gtest_main
-  GTest::gmock_main
-  spdlog::spdlog
-  ${CORO_RUNTIME}
-  ${CANOPY_FMT_LIB}
-  ${ENCLAVE_DEPENDANCIES}
-  ${CANOPY_LIBRARIES})
+         example_idl
+         example_import_idl
+         example_shared_idl
+         -Wl,--whole-archive
+         test_fixtures
+         -Wl,--no-whole-archive
+         yas_common
+         rpc::rpc
+         transport_direct_test
+         transport_local
+         transport_local_test
+         ${SGX_TRANSPORT_TEST_LIB}
+         ${SPSC_TRANSPORT_LIB}
+         ${TCP_TRANSPORT_LIB}
+         ${SPSC_TRANSPORT_TEST_LIB}
+         ${TCP_TRANSPORT_TEST_LIB}
+         yas_common
+         args::args
+         fmt::fmt-header-only
+         GTest::gtest_main
+         GTest::gmock_main
+         spdlog::spdlog
+         ${CORO_RUNTIME}
+         ${CANOPY_FMT_LIB}
+         ${ENCLAVE_DEPENDANCIES}
+         ${CANOPY_LIBRARIES})
 
 target_compile_options(rpc_test PRIVATE ${CANOPY_COMPILE_OPTIONS} ${CANOPY_WARN_OK})
 target_link_options(rpc_test PRIVATE ${CANOPY_LINK_EXE_OPTIONS})

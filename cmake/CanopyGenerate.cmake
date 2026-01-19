@@ -9,18 +9,23 @@ function(
   idl
   base_dir
   output_path
-  namespace
-)
-  set(options suppress_catch_stub_exceptions no_include_rpc_headers yas_binary yas_compressed_binary yas_json protocol_buffers)
+  namespace)
+  set(options
+      suppress_catch_stub_exceptions
+      no_include_rpc_headers
+      yas_binary
+      yas_compressed_binary
+      yas_json
+      protocol_buffers)
   set(singleValueArgs mock install_dir)
   set(multiValueArgs
-    dependencies
-    link_libraries
-    include_paths
-    defines
-    additional_headers
-    rethrow_stub_exception
-    additional_stub_header)
+      dependencies
+      link_libraries
+      include_paths
+      defines
+      additional_headers
+      rethrow_stub_exception
+      additional_stub_header)
 
   # split out multivalue variables
   cmake_parse_arguments(
@@ -30,49 +35,71 @@ function(
     "${multiValueArgs}"
     ${ARGN})
 
-  # Define cache variables for global settings with defaults
-  # These allow users to override settings while providing sensible defaults
+  # Define cache variables for global settings with defaults These allow users to override settings while providing
+  # sensible defaults
   if(NOT DEFINED CANOPY_BUILD_ENCLAVE)
-    set(CANOPY_BUILD_ENCLAVE OFF CACHE BOOL "Build enclave targets")
+    set(CANOPY_BUILD_ENCLAVE
+        OFF
+        CACHE BOOL "Build enclave targets")
   endif()
   if(NOT DEFINED CANOPY_DEFINES)
-    set(CANOPY_DEFINES "" CACHE STRING "Host compile definitions")
+    set(CANOPY_DEFINES
+        ""
+        CACHE STRING "Host compile definitions")
   endif()
   if(NOT DEFINED CANOPY_INCLUDES)
-    set(CANOPY_INCLUDES "" CACHE STRING "Host include directories")
+    set(CANOPY_INCLUDES
+        ""
+        CACHE STRING "Host include directories")
   endif()
   if(NOT DEFINED CANOPY_COMPILE_OPTIONS)
-    set(CANOPY_COMPILE_OPTIONS "" CACHE STRING "Host compile options")
+    set(CANOPY_COMPILE_OPTIONS
+        ""
+        CACHE STRING "Host compile options")
   endif()
   if(NOT DEFINED SGX_LIBRARY_PATH)
-    set(SGX_LIBRARY_PATH "" CACHE STRING "SGX library path")
+    set(SGX_LIBRARY_PATH
+        ""
+        CACHE STRING "SGX library path")
   endif()
   if(NOT DEFINED CANOPY_FMT_LIB)
-    set(CANOPY_FMT_LIB "" CACHE STRING "Host fmt library")
+    set(CANOPY_FMT_LIB
+        ""
+        CACHE STRING "Host fmt library")
   endif()
   if(NOT DEFINED CANOPY_ENCLAVE_DEFINES)
-    set(CANOPY_ENCLAVE_DEFINES "" CACHE STRING "Enclave compile definitions")
+    set(CANOPY_ENCLAVE_DEFINES
+        ""
+        CACHE STRING "Enclave compile definitions")
   endif()
   if(NOT DEFINED CANOPY_ENCLAVE_LIBCXX_INCLUDES)
-    set(CANOPY_ENCLAVE_LIBCXX_INCLUDES "" CACHE STRING "Enclave libcxx include directories")
+    set(CANOPY_ENCLAVE_LIBCXX_INCLUDES
+        ""
+        CACHE STRING "Enclave libcxx include directories")
   endif()
   if(NOT DEFINED CANOPY_ENCLAVE_COMPILE_OPTIONS)
-    set(CANOPY_ENCLAVE_COMPILE_OPTIONS "" CACHE STRING "Enclave compile options")
+    set(CANOPY_ENCLAVE_COMPILE_OPTIONS
+        ""
+        CACHE STRING "Enclave compile options")
   endif()
   if(NOT DEFINED CANOPY_ENCLAVE_FMT_LIB)
-    set(CANOPY_ENCLAVE_FMT_LIB "" CACHE STRING "Enclave fmt library")
+    set(CANOPY_ENCLAVE_FMT_LIB
+        ""
+        CACHE STRING "Enclave fmt library")
   endif()
   if(NOT DEFINED WARN_OK)
-    set(WARN_OK "" CACHE STRING "Warning flags that are acceptable")
+    set(WARN_OK
+        ""
+        CACHE STRING "Warning flags that are acceptable")
   endif()
 
-  # Extract directory and base filename from IDL path BEFORE converting to absolute
-  # idl parameter is like "example_shared/example_shared.idl" or "rpc/rpc_types.idl" or just "example.idl"
+  # Extract directory and base filename from IDL path BEFORE converting to absolute idl parameter is like
+  # "example_shared/example_shared.idl" or "rpc/rpc_types.idl" or just "example.idl"
   get_filename_component(idl_dir ${idl} DIRECTORY)
   get_filename_component(idl_basename ${idl} NAME_WE)
 
-  # The subdirectory is extracted from the IDL path
-  # If idl has no directory (e.g., "example.idl"), use empty subdirectory
+  # The subdirectory is extracted from the IDL path If idl has no directory (e.g., "example.idl"), use empty
+  # subdirectory
   if("${idl_dir}" STREQUAL "")
     set(sub_directory ".")
   else()
@@ -82,8 +109,7 @@ function(
   # The base filename comes from the IDL filename (without .idl extension)
   set(base_filename ${idl_basename})
 
-  # Generator receives only the basename
-  # The directory will be extracted from the IDL path by the generator
+  # Generator receives only the basename The directory will be extracted from the IDL path by the generator
   set(base_name ${base_filename})
 
   # keep relative path of idl for install, else use only the file name
@@ -114,7 +140,9 @@ function(
   set(generate_yas FALSE)
   set(generate_protobuf FALSE)
 
-  if(${params_yas_binary} OR ${params_yas_compressed_binary} OR ${params_yas_json})
+  if(${params_yas_binary}
+     OR ${params_yas_compressed_binary}
+     OR ${params_yas_json})
     set(generate_yas TRUE)
     set(yas_path ${sub_directory}/yas/${base_filename}.cpp)
     set(full_yas_path ${output_path}/src/${yas_path})
@@ -176,7 +204,9 @@ function(
 
   # Use cache variable for generator executable with fallback
   if(NOT DEFINED CANOPY_IDL_GENERATOR_EXECUTABLE)
-    set(CANOPY_IDL_GENERATOR_EXECUTABLE "generator" CACHE STRING "Path to the IDL generator executable")
+    set(CANOPY_IDL_GENERATOR_EXECUTABLE
+        "generator"
+        CACHE STRING "Path to the IDL generator executable")
   endif()
   set(IDL_GENERATOR ${CANOPY_IDL_GENERATOR_EXECUTABLE})
 
@@ -218,9 +248,9 @@ function(
     else()
       message("target ${dep}_generate does not exist so skipped")
     endif()
-    # when installed (used through a package) idl dependencies can be found through their * (or *_enclave) targets:
-    # we know that <package_dir>/${param_install_dir}/interfaces/include is in the target's include directories, and
-    # that the idls themselves are in <package_dir>/${param_install_dir}
+    # when installed (used through a package) idl dependencies can be found through their * (or *_enclave) targets: we
+    # know that <package_dir>/${param_install_dir}/interfaces/include is in the target's include directories, and that
+    # the idls themselves are in <package_dir>/${param_install_dir}
     if(TARGET ${dep})
       get_target_property(include_dirs ${dep} INTERFACE_INCLUDE_DIRECTORIES)
       foreach(include_dir ${include_dirs})
@@ -256,8 +286,8 @@ function(
   endif()
 
   if(generate_protobuf)
-    # Only the manifest and wrapper C++ file are direct generator outputs
-    # Individual .proto files are listed in manifest.txt and compiled separately
+    # Only the manifest and wrapper C++ file are direct generator outputs Individual .proto files are listed in
+    # manifest.txt and compiled separately
     list(APPEND GENERATOR_OUTPUTS ${full_protobuf_cpp_path} ${full_protobuf_manifest_path})
   endif()
 
@@ -271,15 +301,15 @@ function(
     set(SERIALIZATION_FLAGS ${SERIALIZATION_FLAGS} --protobuf)
   endif()
 
-  # Determine generator dependency for custom command
-  # If generator target exists (building from source), depend on the executable file
-  # Otherwise use the cached executable path (installed version)
+  # Determine generator dependency for custom command If generator target exists (building from source), depend on the
+  # executable file Otherwise use the cached executable path (installed version)
   set(GENERATOR_DEPENDENCY "")
   if(TARGET generator)
     set(GENERATOR_DEPENDENCY $<TARGET_FILE:generator>)
   endif()
 
-  message("  add_custom_command(
+  message(
+    "  add_custom_command(
     OUTPUT ${GENERATOR_OUTPUTS}
     COMMAND
     ${IDL_GENERATOR} --idl ${idl} --output_path ${output_path} --name ${base_name}
@@ -291,10 +321,8 @@ function(
 
   add_custom_command(
     OUTPUT ${GENERATOR_OUTPUTS}
-    COMMAND
-    ${IDL_GENERATOR} --idl ${idl} --output_path ${output_path} --name ${base_name}
-    ${SERIALIZATION_FLAGS} ${PATHS_PARAMS} ${ADDITIONAL_HEADERS}
-    ${RETHROW_STUB_EXCEPTION} ${ADDITIONAL_STUB_HEADER}
+    COMMAND ${IDL_GENERATOR} --idl ${idl} --output_path ${output_path} --name ${base_name} ${SERIALIZATION_FLAGS}
+            ${PATHS_PARAMS} ${ADDITIONAL_HEADERS} ${RETHROW_STUB_EXCEPTION} ${ADDITIONAL_STUB_HEADER}
     MAIN_DEPENDENCY ${idl}
     IMPLICIT_DEPENDS ${idl}
     DEPENDS ${GENERATED_DEPENDENCIES} ${GENERATOR_DEPENDENCY}
@@ -309,9 +337,7 @@ function(
   ")
   endif()
 
-  add_custom_target(
-    ${name}_idl_generate
-    DEPENDS ${GENERATOR_OUTPUTS})
+  add_custom_target(${name}_idl_generate DEPENDS ${GENERATOR_OUTPUTS})
 
   # Ensure generator executable is built before generating IDL
   add_dependencies(${name}_idl_generate generator)
@@ -332,20 +358,17 @@ function(
     # The stamp file tracks when the internal compilation script has finished
     set(proto_stamp_file ${proto_dir}/.proto_compiled)
 
-    # Generate a cmake file that lists all the expected .pb.cc files
-    # This is created during build after the proto files are compiled
+    # Generate a cmake file that lists all the expected .pb.cc files This is created during build after the proto files
+    # are compiled
     set(proto_sources_cmake ${proto_dir}/generated_sources.cmake)
 
     add_custom_command(
       OUTPUT ${proto_stamp_file} ${proto_sources_cmake}
       # Compile the proto files and generate the cmake file with .pb.cc sources
-      COMMAND ${CMAKE_COMMAND}
-      -D PROTOC=$<TARGET_FILE:protoc>
-      -D SUB_DIR=${sub_directory}
-      -D PROTO_DIR=${proto_dir}
-      -D OUTPUT_DIR=${output_path}/src
-      -D PROTO_SOURCES_CMAKE=${proto_sources_cmake}
-      -P ${CMAKE_SOURCE_DIR}/cmake/compile_protos.cmake
+      COMMAND
+        ${CMAKE_COMMAND} -D PROTOC=$<TARGET_FILE:protoc> -D SUB_DIR=${sub_directory} -D PROTO_DIR=${proto_dir} -D
+        OUTPUT_DIR=${output_path}/src -D PROTO_SOURCES_CMAKE=${proto_sources_cmake} -P
+        ${CMAKE_SOURCE_DIR}/cmake/compile_protos.cmake
       COMMAND ${CMAKE_COMMAND} -E touch ${proto_stamp_file}
       DEPENDS ${PROTO_MANIFEST}
       COMMENT "Discovering and compiling .proto files for ${name}")
@@ -354,11 +377,12 @@ function(
 
     # Create a placeholder cmake file if it doesn't exist (for configure time)
     if(NOT EXISTS ${proto_sources_cmake})
-      file(WRITE ${proto_sources_cmake} "# Placeholder - will be regenerated at build time\nset(PROTO_PB_SOURCES \"\")\n")
+      file(WRITE ${proto_sources_cmake}
+           "# Placeholder - will be regenerated at build time\nset(PROTO_PB_SOURCES \"\")\n")
     endif()
 
-    # Read the manifest.txt file to determine which .pb.cc files will be generated
-    # The manifest.txt is created by the IDL generator, so it exists after code generation
+    # Read the manifest.txt file to determine which .pb.cc files will be generated The manifest.txt is created by the
+    # IDL generator, so it exists after code generation
     set(PROTO_PB_SOURCES "")
     if(EXISTS ${PROTO_MANIFEST})
 
@@ -379,8 +403,8 @@ function(
         endif()
       endforeach()
     else()
-      # Manifest doesn't exist at configure time (e.g., after deleting build/generated)
-      # Use the generated_sources.cmake file which will be populated at build time
+      # Manifest doesn't exist at configure time (e.g., after deleting build/generated) Use the generated_sources.cmake
+      # file which will be populated at build time
       if(EXISTS ${proto_sources_cmake})
         include(${proto_sources_cmake})
       endif()
@@ -391,24 +415,22 @@ function(
     set_source_files_properties("${proto_proxy_src}" PROPERTIES GENERATED TRUE)
 
     # Define the library using the known wrapper, proxy, and all generated .pb.cc files
-    message("    add_library(${name}_protobuf_generated STATIC
+    message(
+      "    add_library(${name}_protobuf_generated STATIC
       ${full_protobuf_cpp_path}
       ${proto_proxy_src}
       ${PROTO_PB_SOURCES})
 ")
 
-    add_library(${name}_protobuf_generated STATIC
-      ${full_protobuf_cpp_path}
-      ${proto_proxy_src}
-      ${PROTO_PB_SOURCES})
+    add_library(${name}_protobuf_generated STATIC ${full_protobuf_cpp_path} ${proto_proxy_src} ${PROTO_PB_SOURCES})
 
     # Make sure the generated protobuf C++ file waits for protobuf compilation
     if(EXISTS ${full_protobuf_cpp_path})
       add_dependencies(${name}_protobuf_generated ${name}_proto_compile)
     endif()
 
-    # CRITICAL: We tell the library to include the object files found in the manifest
-    # This uses a generator expression to pull in the objects compiled by our script
+    # CRITICAL: We tell the library to include the object files found in the manifest This uses a generator expression
+    # to pull in the objects compiled by our script
     target_link_libraries(${name}_protobuf_generated PRIVATE rpc::rpc)
     # Add protobuf include directories for compilation
     if(TARGET protobuf::libprotobuf)
@@ -431,9 +453,7 @@ function(
   endif()
 
   # Create the host IDL library
-  add_library(
-    ${name}_idl STATIC
-    ${IDL_SOURCES})
+  add_library(${name}_idl STATIC ${IDL_SOURCES})
   target_compile_definitions(${name}_idl PRIVATE ${CANOPY_DEFINES})
   target_include_directories(
     ${name}_idl
@@ -485,9 +505,7 @@ function(
 
   if(CANOPY_BUILD_ENCLAVE)
     # Create the enclave IDL library
-    add_library(
-      ${name}_idl_enclave STATIC
-      ${IDL_SOURCES})
+    add_library(${name}_idl_enclave STATIC ${IDL_SOURCES})
     target_compile_definitions(${name}_idl_enclave PRIVATE ${CANOPY_ENCLAVE_DEFINES})
     target_include_directories(
       ${name}_idl_enclave
@@ -549,8 +567,8 @@ function(
       message("target ${dep}_generate does not exist so skipped")
     endif()
 
-    # Add protobuf compilation dependencies if protobuf is enabled
-    # Strip _idl suffix from dependency name to get the actual target name
+    # Add protobuf compilation dependencies if protobuf is enabled Strip _idl suffix from dependency name to get the
+    # actual target name
     string(REGEX REPLACE "_idl$" "" dep_base_name "${dep}")
     # Only add dependency if the dependency target has protobuf enabled too
     if(generate_protobuf AND TARGET ${dep_base_name}_proto_compile)
