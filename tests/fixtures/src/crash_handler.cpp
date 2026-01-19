@@ -273,7 +273,7 @@ namespace crash_handler
             std::cout << std::endl;
 
             // Print stack frames
-            const auto& frames = thread.symbols.empty() ? std::vector<std::string>(thread.stack_frames.size(), "<??>")
+            const auto& frames = thread.symbols.empty() ? std::vector<std::string>(thread.stack_frames.size(), "<\?\?>")
                                                         : thread.symbols;
 
             for (size_t j = 0; j < thread.stack_frames.size() && j < frames.size(); ++j)
@@ -681,7 +681,7 @@ namespace crash_handler
             ss << "\n";
 
             // Print stack frames
-            const auto& frames = thread.symbols.empty() ? std::vector<std::string>(thread.stack_frames.size(), "<??>")
+            const auto& frames = thread.symbols.empty() ? std::vector<std::string>(thread.stack_frames.size(), "<\?\?>")
                                                         : thread.symbols;
 
             for (size_t j = 0; j < thread.stack_frames.size() && j < frames.size(); ++j)
@@ -776,8 +776,9 @@ namespace crash_handler
                 file << "\n";
 
                 // Print stack frames with enhanced symbols
-                const auto& frames = thread.symbols.empty() ? std::vector<std::string>(thread.stack_frames.size(), "<??>")
-                                                            : thread.symbols;
+                const auto& frames = thread.symbols.empty()
+                                         ? std::vector<std::string>(thread.stack_frames.size(), "<\?\?>")
+                                         : thread.symbols;
 
                 for (size_t j = 0; j < thread.stack_frames.size() && j < frames.size(); ++j)
                 {

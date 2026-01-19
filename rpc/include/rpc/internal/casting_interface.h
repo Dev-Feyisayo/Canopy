@@ -18,7 +18,6 @@ namespace rpc
     class object_stub;
     class service_proxy;
     class service;
-    class object;
     template<class T> class shared_ptr;
 
     // this is a nice helper function to match an interface id to a interface in a version independent way

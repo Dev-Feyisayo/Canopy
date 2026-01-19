@@ -71,7 +71,10 @@ foreach(test_name ${BUILDABLE_TESTS})
         target_compile_options(${test_name} PRIVATE "-include${CMAKE_CURRENT_SOURCE_DIR}/include/msvc_compat.hpp")
       endif()
 
-      # No target_link_libraries needed - these are isolated STL tests
+      # Link atomic library for Clang 18 compatibility
+      if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "19")
+        target_link_libraries(${test_name} PRIVATE atomic)
+      endif()
 
       target_compile_features(${test_name} PRIVATE cxx_std_17)
 

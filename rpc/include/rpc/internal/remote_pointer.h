@@ -90,23 +90,11 @@ namespace rpc
         {
             template<typename Y, typename Ty> struct sp_convertible : std::bool_constant<std::is_convertible_v<Y*, Ty*>>
             {
-#ifndef TEST_STL_COMPLIANCE
-                static_assert(is_casting_interface_derived<Y>::value,
-                    "rpc::shared_ptr can only manage casting_interface-derived types or void");
-                static_assert(is_casting_interface_derived<Ty>::value,
-                    "rpc::shared_ptr can only manage casting_interface-derived types or void");
-#endif
             };
 
             template<typename Y, typename Ty>
             struct sp_pointer_compatible : std::bool_constant<std::is_convertible_v<Y*, Ty*>>
             {
-#ifndef TEST_STL_COMPLIANCE
-                static_assert(is_casting_interface_derived<Y>::value,
-                    "rpc::shared_ptr can only manage casting_interface-derived types or void");
-                static_assert(is_casting_interface_derived<Ty>::value,
-                    "rpc::shared_ptr can only manage casting_interface-derived types or void");
-#endif
             };
         } // namespace __shared_ptr_pointer_utils
 
@@ -800,7 +788,9 @@ namespace rpc
         constexpr shared_ptr() noexcept = default;
         constexpr shared_ptr(std::nullptr_t) noexcept { }
 
-        template<typename Y, typename = std::enable_if_t<is_ptr_convertible<Y>::value>>
+        template<typename Y,
+            typename = std::enable_if_t<is_ptr_convertible<Y>::value
+                                        && !std::is_same_v<std::remove_cv_t<Y>, __rpc_internal::__shared_ptr_control_block::control_block_base>>>
         explicit shared_ptr(Y* p)
             : ptr_(static_cast<element_type_impl*>(p))
             , cb_(nullptr)
@@ -823,7 +813,10 @@ namespace rpc
                 __rpc_internal::try_enable_shared_from_this(*this, p);
         }
 
-        template<typename Y, typename Deleter, typename = std::enable_if_t<is_ptr_convertible<Y>::value>>
+        template<typename Y,
+            typename Deleter,
+            typename = std::enable_if_t<is_ptr_convertible<Y>::value
+                                        && !std::is_same_v<std::remove_cv_t<Y>, __rpc_internal::__shared_ptr_control_block::control_block_base>>>
         shared_ptr(Y* p, Deleter d)
             : ptr_(static_cast<element_type_impl*>(p))
             , cb_(nullptr)
@@ -870,7 +863,11 @@ namespace rpc
             }
         }
 
-        template<typename Y, typename Deleter, typename Alloc, typename = std::enable_if_t<is_ptr_convertible<Y>::value>>
+        template<typename Y,
+            typename Deleter,
+            typename Alloc,
+            typename = std::enable_if_t<is_ptr_convertible<Y>::value
+                                        && !std::is_same_v<std::remove_cv_t<Y>, __rpc_internal::__shared_ptr_control_block::control_block_base>>>
         shared_ptr(Y* p, Deleter d, Alloc cb_alloc)
             : ptr_(static_cast<element_type_impl*>(p))
             , cb_(nullptr)

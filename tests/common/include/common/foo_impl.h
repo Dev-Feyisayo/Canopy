@@ -966,7 +966,7 @@ namespace marshalled_tests
             CO_RETURN rpc::error::OK();
         }
 
-        CORO_TASK(error_code) give_host_cached_object()
+        CORO_TASK(error_code) give_host_cached_object() override
         {
             RPC_INFO("example::give_host_cached_object - Zone {} giving host cached autonomous object",
                 rpc::service::get_current_service() ? rpc::service::get_current_service()->get_zone_id().get_val() : 0);

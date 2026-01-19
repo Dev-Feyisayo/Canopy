@@ -50,6 +50,21 @@
       }
     },
     {
+      "name": "Debug-clang-18",
+      "binaryDir": "build_debug",
+      "inherits": "Base",
+      "cacheVariables": {
+        "CANOPY_BUILD_COROUTINE": "OFF",
+        "BUILD_TYPE": "debug",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CANOPY_USE_LOGGING": "ON",
+        "CANOPY_USE_TELEMETRY": "ON",
+        "CANOPY_USE_CONSOLE_TELEMETRY": "ON",
+        "CMAKE_C_COMPILER": "clang-18",
+        "CMAKE_CXX_COMPILER": "clang++-18"
+      }
+    },
+    {
       "name": "Coroutine_Debug",
       "inherits": "Base",
       "binaryDir": "build_coroutine_debug",
@@ -135,6 +150,19 @@
         "BUILD_TYPE": "release",
         "SGX_HW": "OFF",
         "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "Release-clang-18",
+      "binaryDir": "build_release",
+      "inherits": "Base",
+      "cacheVariables": {
+        "CANOPY_BUILD_COROUTINE": "OFF",
+        "BUILD_TYPE": "release",
+        "SGX_HW": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang-18",
+        "CMAKE_CXX_COMPILER": "clang++-18"
       }
     },
     {
