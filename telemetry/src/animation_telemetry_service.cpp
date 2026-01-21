@@ -1014,6 +1014,12 @@ svg {
         linkUsage.clear();
         activeZones.clear();
         activeZones.add(primaryZoneId || 1);
+        // Reset hierarchical layout state so scrubbing doesn't reuse future data.
+        Object.keys(zones).forEach((key) => delete zones[key]);
+        Object.keys(adjacencyList).forEach((key) => delete adjacencyList[key]);
+        Object.keys(PortRegistry).forEach((key) => delete PortRegistry[key]);
+        zoneAliases.clear();
+        primaryZoneId = null;
         processedIndex = 0;
         processedDisplayTime = 0;
         clearLog();
@@ -1219,6 +1225,23 @@ svg {
             });
         }
         Array.from(toRemove).forEach((id) => deleteNode(id));
+        if (zones[zoneNumber]) {
+            const parentId = zones[zoneNumber].parentId;
+            if (parentId !== undefined && zones[parentId]) {
+                zones[parentId].children = zones[parentId].children.filter(
+                    (childId) => childId !== zoneNumber);
+            }
+            const adjacent = adjacencyList[zoneNumber];
+            if (adjacent) {
+                adjacent.forEach((neighbor) => {
+                    if (adjacencyList[neighbor]) {
+                        adjacencyList[neighbor].delete(zoneNumber);
+                    }
+                });
+                delete adjacencyList[zoneNumber];
+            }
+            delete zones[zoneNumber];
+        }
         appendLog(evt);
     }
 
@@ -1721,6 +1744,20 @@ svg {
         links.delete(crossZoneLinkId);
         deleteNode(transport1Id);
         deleteNode(transport2Id);
+        if (zones[zone1Number]) {
+            zones[zone1Number].transports = zones[zone1Number].transports.filter(
+                (transport) => transport.adjId !== zone2Number);
+        }
+        if (zones[zone2Number]) {
+            zones[zone2Number].transports = zones[zone2Number].transports.filter(
+                (transport) => transport.adjId !== zone1Number);
+        }
+        if (adjacencyList[zone1Number]) {
+            adjacencyList[zone1Number].delete(zone2Number);
+        }
+        if (adjacencyList[zone2Number]) {
+            adjacencyList[zone2Number].delete(zone1Number);
+        }
         appendLog(evt);
     }
 
@@ -1794,6 +1831,15 @@ svg {
         links.delete(`${id}-forward`);
         links.delete(`${id}-reverse`);
         deleteNode(id);
+        const zoneNumber = normalizeZoneNumber(evt.data.zone_id);
+        const forwardDestNumber = normalizeZoneNumber(evt.data.forward_destination);
+        const reverseDestNumber = normalizeZoneNumber(evt.data.reverse_destination);
+        if (zones[zoneNumber]) {
+            zones[zoneNumber].passthroughs = zones[zoneNumber].passthroughs.filter((entry) => {
+                return !(entry.fwd === forwardDestNumber && entry.rev === reverseDestNumber);
+            });
+            zones[zoneNumber].height = zones[zoneNumber].passthroughs.length > 0 ? 260 : 140;
+        }
         appendLog(evt);
     }
 
@@ -2205,6 +2251,7 @@ svg {
     function rebuildVisualization() {
         // Clear existing visualization
         g.selectAll('*').remove();
+        Object.keys(PortRegistry).forEach((key) => delete PortRegistry[key]);
 
         // Find all root zones (zones with parentId === 0)
         const rootZones = Object.values(zones).filter(z => z.parentId === 0);
