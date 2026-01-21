@@ -277,6 +277,19 @@ svg {
     stroke: #ff8c61;
 }
 
+.transport-label {
+    font-size: 9px;
+    fill: #ffffff;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.transport-detail {
+    font-size: 9px;
+    fill: #fef3c7;
+    pointer-events: none;
+}
+
 .pass-circle {
     fill: #6c5ce7;
     stroke: #a29bfe;
@@ -314,6 +327,12 @@ svg {
     const paddingBottom = 80;
     const maxLogEntries = 60;
     const epsilon = 1e-6;
+    const transportLineHeight = 12;
+    const transportBoxPaddingX = 8;
+    const transportBoxPaddingY = 6;
+    const transportMinWidth = 60;
+    const transportMinHeight = 30;
+    const transportMaxWidth = 320;
 
     const palette = {
         zone: '#38bdf8',
@@ -394,6 +413,10 @@ svg {
     const zones = {};  // zone_id -> { id, name, parentId, transports[], passthroughs[], children[], width, height }
     const adjacencyList = {};  // zone_id -> Set of adjacent zone_ids (for BFS pathfinding)
     const PortRegistry = {};  // "zoneId:adjId" -> { relX, relY, absX, absY }
+    const transportRefState = new Map();  // transportId -> { alive, createdAt, deletedAt, pairs: Map }
+    const transportAuditState = { completed: false, lastEventTimestamp: 0 };
+    const ADD_REF_OPTIMISTIC = 4;
+    const RELEASE_OPTIMISTIC = 1;
 
     const implByAddress = new Map();
     const objectToImpl = new Map();
@@ -1097,6 +1120,9 @@ svg {
         clearObject(zones);
         clearObject(adjacencyList);
         clearObject(PortRegistry);
+        transportRefState.clear();
+        transportAuditState.completed = false;
+        transportAuditState.lastEventTimestamp = 0;
         activeZones.add(primaryZoneId || 1);
         processedIndex = 0;
         processedDisplayTime = 0;
@@ -1135,9 +1161,16 @@ svg {
             processedIndex += 1;
         }
         updateGraph();
+        if (processedIndex >= events.length && !transportAuditState.completed) {
+            auditTransportLeaks();
+            transportAuditState.completed = true;
+        }
     }
 
     function applyEvent(evt) {
+        if (evt && typeof evt.timestamp === 'number') {
+            transportAuditState.lastEventTimestamp = evt.timestamp;
+        }
         switch (evt.type) {
         case 'service_creation':
             createZone(evt);
@@ -1204,6 +1237,12 @@ svg {
             break;
         case 'transport_deletion':
             deleteTransport(evt);
+            break;
+        case 'transport_outbound_add_ref':
+        case 'transport_inbound_add_ref':
+        case 'transport_outbound_release':
+        case 'transport_inbound_release':
+            updateTransportRefCounts(evt);
             break;
         case 'pass_through_creation':
             createPassthrough(evt);
@@ -1521,6 +1560,58 @@ svg {
         appendLog(evt);
     }
 
+    function updateTransportRefCounts(evt) {
+        const zoneNumber = normalizeZoneNumber(evt.data.zone);
+        const adjacentNumber = normalizeZoneNumber(evt.data.adjacentZone);
+        const destinationNumber = normalizeZoneNumber(evt.data.destinationZone);
+        const callerNumber = normalizeZoneNumber(evt.data.callerZone);
+        if (zoneNumber === null || adjacentNumber === null || destinationNumber === null || callerNumber === null) {
+            appendLog(evt);
+            return;
+        }
+        const state = ensureTransportState(zoneNumber, adjacentNumber);
+        const pairKey = `${destinationNumber}->${callerNumber}`;
+        if (!state.pairs.has(pairKey)) {
+            state.pairs.set(pairKey, {
+                destination: destinationNumber,
+                caller: callerNumber,
+                inbound: { shared: 0, optimistic: 0 },
+                outbound: { shared: 0, optimistic: 0 }
+            });
+        }
+        const entry = state.pairs.get(pairKey);
+        const direction = evt.type.includes('outbound') ? 'outbound' : 'inbound';
+        const bucket = entry[direction];
+        const isAdd = evt.type.includes('add_ref');
+        const options = Number(evt.data.options) || 0;
+        const optimisticFlag = isAdd
+            ? ((options & ADD_REF_OPTIMISTIC) !== 0)
+            : ((options & RELEASE_OPTIMISTIC) !== 0);
+        const delta = isAdd ? 1 : -1;
+        if (optimisticFlag) {
+            bucket.optimistic += delta;
+            if (bucket.optimistic < 0) {
+                appendTransportAudit(
+                    `transport ${makeTransportId(zoneNumber, adjacentNumber)} optimistic count went negative`,
+                    { transportId: makeTransportId(zoneNumber, adjacentNumber), destination: destinationNumber, caller: callerNumber });
+                bucket.optimistic = 0;
+            }
+        } else {
+            bucket.shared += delta;
+            if (bucket.shared < 0) {
+                appendTransportAudit(
+                    `transport ${makeTransportId(zoneNumber, adjacentNumber)} shared count went negative`,
+                    { transportId: makeTransportId(zoneNumber, adjacentNumber), destination: destinationNumber, caller: callerNumber });
+                bucket.shared = 0;
+            }
+        }
+        if (entry.inbound.shared + entry.outbound.shared === 0
+            && entry.inbound.optimistic + entry.outbound.optimistic === 0) {
+            state.pairs.delete(pairKey);
+        }
+        appendLog(evt);
+    }
+
     function createObjectProxy(evt) {
         const zoneNumber = normalizeZoneNumber(evt.data.zone);
         const destinationZoneNumber = normalizeZoneNumber(evt.data.destinationZone);
@@ -1728,6 +1819,60 @@ svg {
         return `passthrough-${zone}-${forward}-${reverse}`;
     }
 
+    function ensureTransportState(zoneNumber, adjacentZoneNumber) {
+        const transportId = makeTransportId(zoneNumber, adjacentZoneNumber);
+        if (!transportRefState.has(transportId)) {
+            transportRefState.set(transportId, {
+                alive: true,
+                createdAt: transportAuditState.lastEventTimestamp,
+                deletedAt: null,
+                pairs: new Map()
+            });
+        }
+        return transportRefState.get(transportId);
+    }
+
+    function getTransportTotals(state) {
+        let shared = 0;
+        let optimistic = 0;
+        let nonZeroPairs = 0;
+        state.pairs.forEach((entry) => {
+            const pairShared = entry.inbound.shared + entry.outbound.shared;
+            const pairOptimistic = entry.inbound.optimistic + entry.outbound.optimistic;
+            shared += pairShared;
+            optimistic += pairOptimistic;
+            if (pairShared !== 0 || pairOptimistic !== 0) {
+                nonZeroPairs += 1;
+            }
+        });
+        return { shared, optimistic, nonZeroPairs };
+    }
+
+    function appendTransportAudit(message, details) {
+        appendLog({
+            type: 'transport_ref_audit',
+            timestamp: transportAuditState.lastEventTimestamp || 0,
+            data: { message, ...details }
+        });
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn('[transport-ref-audit]', message, details || {});
+        }
+    }
+
+    function auditTransportLeaks() {
+        transportRefState.forEach((state, transportId) => {
+            if (!state.alive) {
+                return;
+            }
+            const totals = getTransportTotals(state);
+            if (totals.shared === 0 && totals.optimistic === 0) {
+                appendTransportAudit(
+                    `transport ${transportId} still alive with zero ref counts`,
+                    { transportId, shared: 0, optimistic: 0 });
+            }
+        });
+    }
+
     function createTransport(evt) {
         const zone1Number = normalizeZoneNumber(evt.data.zone_id);
         const zone2Number = normalizeZoneNumber(evt.data.adjacent_zone_id);
@@ -1748,6 +1893,9 @@ svg {
             status: evt.data.status
         };
         nodes.set(transport1Id, transport1);
+        const state1 = ensureTransportState(zone1Number, zone2Number);
+        state1.alive = true;
+        state1.createdAt = transportAuditState.lastEventTimestamp;
 
         const transport2 = {
             id: transport2Id,
@@ -1760,6 +1908,9 @@ svg {
             status: evt.data.status
         };
         nodes.set(transport2Id, transport2);
+        const state2 = ensureTransportState(zone2Number, zone1Number);
+        state2.alive = true;
+        state2.createdAt = transportAuditState.lastEventTimestamp;
 
         if (zone1Id && nodes.has(zone1Id)) {
             links.set(`${transport1Id}-parent`, {
@@ -1815,6 +1966,20 @@ svg {
         deleteNode(transport2Id);
         removeTransportFromLayout(zone1Number, zone2Number);
         removeTransportFromLayout(zone2Number, zone1Number);
+        [transport1Id, transport2Id].forEach((transportId) => {
+            const state = transportRefState.get(transportId);
+            if (!state) {
+                return;
+            }
+            const totals = getTransportTotals(state);
+            if (totals.shared !== 0 || totals.optimistic !== 0) {
+                appendTransportAudit(
+                    `transport ${transportId} deleted with nonzero ref counts`,
+                    { transportId, shared: totals.shared, optimistic: totals.optimistic, nonZeroPairs: totals.nonZeroPairs });
+            }
+            state.alive = false;
+            state.deletedAt = transportAuditState.lastEventTimestamp;
+        });
         appendLog(evt);
     }
 
@@ -2246,6 +2411,8 @@ svg {
     function formatEventSummary(evt) {
         const data = evt.data;
         switch (evt.type) {
+        case 'transport_ref_audit':
+            return data.message || 'transport ref audit';
         case 'service_creation':
             return `zone ${data.zone} created (parent ${data.parentZone})`;
         case 'service_deletion':
@@ -2300,6 +2467,51 @@ svg {
             });
     }
 
+    function getTransportPairLines(zoneNumber, adjacentNumber) {
+        const transportId = makeTransportId(zoneNumber, adjacentNumber);
+        const state = transportRefState.get(transportId);
+        if (!state || state.pairs.size === 0) {
+            return [];
+        }
+        const entries = Array.from(state.pairs.values())
+            .map((entry) => {
+                const shared = entry.inbound.shared + entry.outbound.shared;
+                const optimistic = entry.inbound.optimistic + entry.outbound.optimistic;
+                return {
+                    destination: entry.destination,
+                    caller: entry.caller,
+                    shared,
+                    optimistic
+                };
+            })
+            .sort((a, b) => (a.destination - b.destination) || (a.caller - b.caller));
+        return entries.map((entry) =>
+            `D${entry.destination} C${entry.caller} S${entry.shared} O${entry.optimistic}`);
+    }
+
+    function buildTransportLines(zoneNumber, adjacentNumber, header) {
+        const detailLines = getTransportPairLines(zoneNumber, adjacentNumber);
+        const lines = [header];
+        if (detailLines.length === 0) {
+            lines.push('no refs');
+        } else {
+            lines.push(...detailLines);
+        }
+        return lines;
+    }
+
+    function computeTransportMetrics(zoneNumber, adjacentNumber, header) {
+        const lines = buildTransportLines(zoneNumber, adjacentNumber, header);
+        const maxLen = lines.reduce((max, line) => Math.max(max, line.length), 0);
+        const width = Math.min(
+            transportMaxWidth,
+            Math.max(transportMinWidth, transportBoxPaddingX * 2 + maxLen * 6));
+        const height = Math.max(
+            transportMinHeight,
+            transportBoxPaddingY * 2 + lines.length * transportLineHeight);
+        return { lines, width, height };
+    }
+
     function rebuildVisualization() {
         // Clear existing visualization
         g.selectAll('*').remove();
@@ -2338,9 +2550,26 @@ svg {
 
         // Calculate zone dimensions
         Object.values(zones).forEach(z => {
+            z.transportMetrics = {};
+            const adjacentIds = new Set(z.transports.map((t) => t.adjId));
+            if (z.parentId && z.parentId !== 0) {
+                adjacentIds.add(z.parentId);
+            }
+            let maxTransportBoxWidth = transportMinWidth;
+            let maxTransportBoxHeight = transportMinHeight;
+            adjacentIds.forEach((adjId) => {
+                const header = (z.parentId && adjId === z.parentId) ? `IN:${adjId}` : `TO:${adjId}`;
+                const metrics = computeTransportMetrics(z.id, adjId, header);
+                z.transportMetrics[adjId] = metrics;
+                maxTransportBoxWidth = Math.max(maxTransportBoxWidth, metrics.width);
+                maxTransportBoxHeight = Math.max(maxTransportBoxHeight, metrics.height);
+            });
+            z.transportBoxWidth = maxTransportBoxWidth;
+            z.transportBoxHeight = maxTransportBoxHeight;
             const colCount = Math.max(z.transports.length, z.passthroughs.length, 1);
-            z.width = Math.max(260, colCount * 90);
-            z.height = z.passthroughs.length > 0 ? 260 : 140;
+            z.width = Math.max(260, colCount * (maxTransportBoxWidth + 40));
+            const baseHeight = z.passthroughs.length > 0 ? 260 : 140;
+            z.height = Math.max(baseHeight, 120 + maxTransportBoxHeight);
         });
 
         // Apply tree layout
@@ -2380,21 +2609,33 @@ svg {
 
             // IN port (parent connection at top center)
             if (d.parent && d.parent.data.id !== 0) {
+                const parentMetrics = z.transportMetrics
+                    ? z.transportMetrics[d.parent.data.id]
+                    : null;
                 PortRegistry[`${z.id}:${d.parent.data.id}`] = {
                     relX: 0, relY: 0,
-                    absX: absX, absY: absY
+                    absX: absX, absY: absY,
+                    boxWidth: parentMetrics ? parentMetrics.width : transportMinWidth,
+                    boxHeight: parentMetrics ? parentMetrics.height : transportMinHeight,
+                    lines: parentMetrics ? parentMetrics.lines : [`IN:${d.parent.data.id}`, 'no refs']
                 };
             }
 
             // OUT ports (child connections at bottom, distributed evenly)
             z.transports.forEach((t, i) => {
+                const transportMetrics = z.transportMetrics
+                    ? z.transportMetrics[t.adjId]
+                    : null;
                 const tx = (z.transports.length > 1)
                     ? (i / (z.transports.length - 1) * (z.width - 140)) - (z.width / 2 - 70)
                     : 0;
                 const ty = -z.height;
                 PortRegistry[`${z.id}:${t.adjId}`] = {
                     relX: tx, relY: ty,
-                    absX: absX + tx, absY: absY + ty
+                    absX: absX + tx, absY: absY + ty,
+                    boxWidth: transportMetrics ? transportMetrics.width : transportMinWidth,
+                    boxHeight: transportMetrics ? transportMetrics.height : transportMinHeight,
+                    lines: transportMetrics ? transportMetrics.lines : [`TO:${t.adjId}`, 'no refs']
                 };
             });
         });
@@ -2450,24 +2691,35 @@ svg {
                 const p = PortRegistry[key];
                 const pG = zoneSel.append('g').attr('transform', `translate(${p.relX},${p.relY})`);
 
+                const boxWidth = p.boxWidth || transportMinWidth;
+                const boxHeight = p.boxHeight || transportMinHeight;
+                const lines = p.lines || [p.relY === 0 ? `IN:${adjId}` : `TO:${adjId}`];
+
                 pG.append('rect')
                     .attr('class', 'transport-box')
-                    .attr('x', -25)
-                    .attr('y', -15)
-                    .attr('width', 50)
-                    .attr('height', 30)
+                    .attr('x', -boxWidth / 2)
+                    .attr('y', -boxHeight / 2)
+                    .attr('width', boxWidth)
+                    .attr('height', boxHeight)
                     .attr('rx', 4);
 
-                pG.append('text')
-                    .attr('class', 'label')
-                    .attr('y', 5)
-                    .text(p.relY === 0 ? 'IN' : `TO:${adjId}`);
+                const textStartX = -boxWidth / 2 + transportBoxPaddingX;
+                const textStartY = -boxHeight / 2 + transportBoxPaddingY + 9;
+                lines.forEach((line, idx) => {
+                    pG.append('text')
+                        .attr('class', idx === 0 ? 'transport-label' : 'transport-detail')
+                        .attr('x', textStartX)
+                        .attr('y', textStartY + idx * transportLineHeight)
+                        .attr('text-anchor', 'start')
+                        .text(line);
+                });
 
                 // Wire from service to port
+                const halfBoxHeight = boxHeight / 2;
                 zoneSel.append('line')
                     .attr('class', 'wire')
                     .attr('x1', p.relX)
-                    .attr('y1', p.relY + (p.relY === 0 ? -15 : 15))
+                    .attr('y1', p.relY + (p.relY === 0 ? -halfBoxHeight : halfBoxHeight))
                     .attr('x2', 0)
                     .attr('y2', svcY + (p.relY === 0 ? 15 : -15));
             });
