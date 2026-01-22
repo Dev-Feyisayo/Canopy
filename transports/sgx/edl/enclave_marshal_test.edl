@@ -61,7 +61,6 @@ enclave {
             uint64_t caller_zone_id,                            // the original zone where the call came from
             uint64_t known_direction_zone_id,                   // the last zone where the call came from,
             char build_out_param_channel,                       // an rpc add_ref_options flag
-            [out] uint64_t* reference_count,                    // reference count output
             size_t sz_in_back_channel,                          // size of incoming back-channel data
             [in, size=sz_in_back_channel] const char* in_back_channel,  // incoming back-channel data
             size_t sz_out_back_channel,                         // size of out back-channel buffer
@@ -74,7 +73,6 @@ enclave {
             uint64_t object_id,                                 // rpc object index
             uint64_t caller_zone_id,                            // the original zone where the call came from
             char options,                                       // an rpc release_options flag
-            [out] uint64_t* reference_count,                    // reference count output
             size_t sz_in_back_channel,                          // size of incoming back-channel data
             [in, size=sz_in_back_channel] const char* in_back_channel,  // incoming back-channel data
             size_t sz_out_back_channel,                         // size of out back-channel buffer
@@ -136,7 +134,6 @@ enclave {
             uint64_t caller_zone_id,                            // the original zone where the call came from,
             uint64_t known_direction_zone_id,                   // the last zone where the call came from,
             char build_out_param_channel,                       // an rpc add_ref_options flag
-            [out] uint64_t* reference_count,                    // reference count output
             size_t sz_in_back_channel,                          // size of incoming back-channel data
             [in, size=sz_in_back_channel] const char* in_back_channel,  // incoming back-channel data
             size_t sz_out_back_channel,                         // size of out back-channel buffer
@@ -151,7 +148,6 @@ enclave {
             uint64_t object_id,                                 // rpc object index
             uint64_t caller_zone_id,                            // the original zone where the call came from
             char options,                                       // an rpc release_options flag
-            [out] uint64_t* reference_count,                    // reference count output
             size_t sz_in_back_channel,                          // size of incoming back-channel data
             [in, size=sz_in_back_channel] const char* in_back_channel,  // incoming back-channel data
             size_t sz_out_back_channel,                         // size of out back-channel buffer

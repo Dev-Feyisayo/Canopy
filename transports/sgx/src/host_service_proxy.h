@@ -58,7 +58,6 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
         int release(uint64_t protocol_version,
@@ -66,7 +65,6 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             rpc::release_options options,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 

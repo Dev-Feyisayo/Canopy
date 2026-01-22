@@ -282,7 +282,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_happy_path(T& lib)
     uint64_t initial_shared = pt->get_shared_count();
     uint64_t initial_optimistic = pt->get_optimistic_count();
 
-    uint64_t reference_count = 0;
     std::vector<rpc::back_channel_entry> in_back_channel;
     std::vector<rpc::back_channel_entry> out_back_channel;
 
@@ -292,7 +291,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_happy_path(T& lib)
         lib.get_forward_dest().as_caller(),
         lib.get_reverse_dest().as_caller().as_known_direction_zone(),
         rpc::add_ref_options::normal,
-        reference_count,
         in_back_channel,
         out_back_channel);
 
@@ -321,7 +319,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_optimistic(T& lib)
     uint64_t initial_shared = pt->get_shared_count();
     uint64_t initial_optimistic = pt->get_optimistic_count();
 
-    uint64_t reference_count = 0;
     std::vector<rpc::back_channel_entry> in_back_channel;
     std::vector<rpc::back_channel_entry> out_back_channel;
 
@@ -331,7 +328,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_optimistic(T& lib)
         lib.get_forward_dest().as_caller(),
         lib.get_reverse_dest().as_caller().as_known_direction_zone(),
         rpc::add_ref_options::optimistic,
-        reference_count,
         in_back_channel,
         out_back_channel);
 
@@ -361,7 +357,6 @@ template<class T> CORO_TASK(bool) coro_release_happy_path(T& lib)
     uint64_t initial_optimistic = pt->get_optimistic_count();
 
     // First add a reference
-    uint64_t reference_count = 0;
     std::vector<rpc::back_channel_entry> in_back_channel;
     std::vector<rpc::back_channel_entry> out_back_channel;
 
@@ -371,7 +366,6 @@ template<class T> CORO_TASK(bool) coro_release_happy_path(T& lib)
         lib.get_forward_dest().as_caller(),
         lib.get_reverse_dest().as_caller().as_known_direction_zone(),
         rpc::add_ref_options::normal,
-        reference_count,
         in_back_channel,
         out_back_channel);
 
@@ -385,7 +379,6 @@ template<class T> CORO_TASK(bool) coro_release_happy_path(T& lib)
         rpc::object{42},
         lib.get_reverse_dest().as_caller(), // caller = zone 100
         rpc::release_options::normal,
-        reference_count,
         in_back_channel,
         out_back_channel);
 
@@ -490,7 +483,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_with_transport_down(T& lib)
 
     reverse_transport->mark_as_down();
 
-    uint64_t reference_count = 0;
     std::vector<rpc::back_channel_entry> in_back_channel;
     std::vector<rpc::back_channel_entry> out_back_channel;
 
@@ -500,7 +492,6 @@ template<class T> CORO_TASK(bool) coro_add_ref_with_transport_down(T& lib)
         lib.get_forward_dest().as_caller(),
         lib.get_reverse_dest().as_caller().as_known_direction_zone(),
         rpc::add_ref_options::normal,
-        reference_count,
         in_back_channel,
         out_back_channel);
 

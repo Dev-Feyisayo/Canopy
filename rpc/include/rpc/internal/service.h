@@ -218,7 +218,6 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
         CORO_TASK(int)
@@ -227,7 +226,6 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             release_options options,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 
@@ -294,7 +292,6 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel,
             const std::shared_ptr<transport>& transport);
@@ -304,7 +301,6 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             release_options options,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel,
             const std::shared_ptr<transport>& transport);
@@ -492,11 +488,12 @@ namespace rpc
 #endif
         )
         {
-            zone zone_id = parent_transport->get_zone_id();
+            auto zone_id = parent_transport->get_zone_id();
+            auto adjacent_zone_id = parent_transport->get_adjacent_zone_id();
 
             auto child_svc = std::shared_ptr<rpc::child_service>(new rpc::child_service(name,
                 zone_id,
-                parent_transport->get_adjacent_zone_id().as_destination()
+                adjacent_zone_id.as_destination()
 #ifdef CANOPY_BUILD_COROUTINE
                     ,
                 io_scheduler
@@ -519,6 +516,17 @@ namespace rpc
             rpc::shared_ptr<PARENT_INTERFACE> parent_ptr;
             if (input_descr != interface_descriptor())
             {
+#ifdef CANOPY_USE_TELEMETRY
+                if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
+                    telemetry_service->on_transport_inbound_add_ref(zone_id,
+                        adjacent_zone_id,
+                        zone_id.as_destination(),
+                        adjacent_zone_id.as_caller(),
+                        input_descr.object_id,
+                        adjacent_zone_id,
+                        rpc::add_ref_options::normal);
+#endif
+
                 auto err_code = CO_AWAIT rpc::demarshall_interface_proxy(
                     rpc::get_version(), parent_service_proxy, input_descr, parent_ptr);
                 if (err_code != rpc::error::OK())
@@ -541,6 +549,17 @@ namespace rpc
                     && "we cannot support remote pointers to subordinate zones as it has not been registered yet");
                 CO_RETURN CO_AWAIT rpc::create_interface_stub(
                     *child_svc, child_ptr, parent_transport->get_adjacent_zone_id().as_caller(), output_descr);
+
+#ifdef CANOPY_USE_TELEMETRY
+                if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
+                    telemetry_service->on_transport_outbound_add_ref(zone_id,
+                        adjacent_zone_id,
+                        adjacent_zone_id.as_destination(),
+                        zone_id.as_caller(),
+                        output_descr.object_id,
+                        zone_id,
+                        rpc::add_ref_options::normal);
+#endif
             }
             CO_RETURN rpc::error::OK();
         };

@@ -1698,6 +1698,12 @@ function initAnimationTelemetry() {
                     `transport ${transportId} deleted with nonzero ref counts`,
                     { transportId, shared: totals.shared, optimistic: totals.optimistic, nonZeroPairs: totals.nonZeroPairs });
             }
+            if (transportErrors.has(transportId)) {
+                appendTransportAudit(
+                    `transport ${transportId} has cleaned itself up`,
+                    { transportId });
+                transportErrors.delete(transportId);
+            }
             state.alive = false;
             state.deletedAt = transportAuditState.lastEventTimestamp;
         });
@@ -2183,7 +2189,11 @@ function initAnimationTelemetry() {
         }
         const li = document.createElement('li');
         const time = evt.timestamp.toFixed(3).padStart(7, ' ');
-        li.innerHTML = `<div class="timestamp">${time}s · ${evt.type}</div><div>${formatEventSummary(evt)}</div>`;
+        const eventType = evt.type === 'interface_proxy_send' ? `<strong>${evt.type}</strong>` : evt.type;
+        if (evt.type === 'interface_proxy_send') {
+            li.classList.add('interface-proxy-send');
+        }
+        li.innerHTML = `<div class="timestamp">${time}s · ${eventType}</div><div>${formatEventSummary(evt)}</div>`;
         eventLog.appendChild(li);
         while (eventLog.childNodes.length > maxLogEntries) {
             eventLog.removeChild(eventLog.firstChild);

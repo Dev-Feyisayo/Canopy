@@ -198,10 +198,8 @@ namespace rpc
         CO_RETURN last_error;
     }
 
-    [[nodiscard]] CORO_TASK(int) service_proxy::sp_add_ref(object object_id,
-        add_ref_options build_out_param_channel,
-        known_direction_zone known_direction_zone_id,
-        uint64_t& ref_count)
+    [[nodiscard]] CORO_TASK(int) service_proxy::sp_add_ref(
+        object object_id, add_ref_options build_out_param_channel, known_direction_zone known_direction_zone_id)
     {
         auto transport = transport_.get_nullable();
         if (!transport)
@@ -226,7 +224,6 @@ namespace rpc
                 zone_id_.as_caller(),
                 known_direction_zone_id,
                 build_out_param_channel,
-                ref_count,
                 empty_in,
                 empty_out,
                 transport);
@@ -240,8 +237,7 @@ namespace rpc
                         zone_id_.as_caller(),
                         object_id,
                         known_direction_zone_id,
-                        build_out_param_channel,
-                        ref_count);
+                        build_out_param_channel);
                 }
 #endif
                 if (original_version != version)
@@ -261,7 +257,7 @@ namespace rpc
         CO_RETURN last_error;
     }
 
-    CORO_TASK(int) service_proxy::sp_release(object object_id, release_options options, uint64_t& ref_count)
+    CORO_TASK(int) service_proxy::sp_release(object object_id, release_options options)
     {
         auto transport = transport_.get_nullable();
         if (!transport)
@@ -281,14 +277,14 @@ namespace rpc
             // Call the outbound function on the service to allow derived classes to add extra functionality
             // such as processing back_channel data
             auto ret = CO_AWAIT service_->outbound_release(
-                version, destination_zone_id_, object_id, zone_id_.as_caller(), options, ref_count, empty_in, empty_out, transport);
+                version, destination_zone_id_, object_id, zone_id_.as_caller(), options, empty_in, empty_out, transport);
             if (ret != rpc::error::INVALID_VERSION() && ret != rpc::error::INCOMPATIBLE_SERVICE())
             {
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
                 if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
                 {
                     telemetry_service->on_service_proxy_release(
-                        get_zone_id(), destination_zone_id_, zone_id_.as_caller(), object_id, options, ref_count);
+                        get_zone_id(), destination_zone_id_, zone_id_.as_caller(), object_id, options);
                 }
 #endif
                 if (original_version != version)
@@ -323,7 +319,6 @@ namespace rpc
         // if service is released then the last thing standing is the transport which may then tell its counterpart
         // to begin cleanup too
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> empty_in;
         std::vector<rpc::back_channel_entry> empty_out;
 
@@ -334,7 +329,6 @@ namespace rpc
             object_id,
             caller_id,
             is_optimistic ? release_options::optimistic : release_options::normal,
-            ref_count,
             empty_in,
             empty_out,
             transport);
@@ -345,8 +339,7 @@ namespace rpc
                 destination_zone_id,
                 svc->get_zone_id().as_caller(),
                 object_id,
-                is_optimistic ? release_options::optimistic : release_options::normal,
-                ref_count);
+                is_optimistic ? release_options::optimistic : release_options::normal);
         }
 #endif
 
@@ -359,10 +352,7 @@ namespace rpc
         // error handling here as the cleanup needs to happen anyway
         if (ret == rpc::error::OK())
         {
-            RPC_DEBUG("Remote {} count = {} for object {}",
-                is_optimistic ? "optimistic" : "shared",
-                ref_count,
-                object_id.get_val());
+            RPC_DEBUG("Remote {} count = {} for object {}", is_optimistic ? "optimistic" : "shared", object_id.get_val());
         }
         else if (is_optimistic && ret == rpc::error::OBJECT_NOT_FOUND())
         {
@@ -406,8 +396,7 @@ namespace rpc
                 destination_zone_id_,
                 zone_id_.as_caller(),
                 object_id,
-                is_optimistic ? release_options::optimistic : release_options::normal,
-                0);
+                is_optimistic ? release_options::optimistic : release_options::normal);
         }
 #endif
 
@@ -514,11 +503,9 @@ namespace rpc
                     "get_or_create_object_proxy calling sp_add_ref with normal options for new object_proxy");
             }
 #endif
-            uint64_t ref_count = 0;
             auto ret = CO_AWAIT sp_add_ref(object_id,
                 is_optimistic ? rpc::add_ref_options::optimistic : rpc::add_ref_options::normal,
-                known_direction_zone_id,
-                ref_count);
+                known_direction_zone_id);
             if (ret != error::OK())
             {
                 RPC_ERROR("sp_add_ref failed");
@@ -527,11 +514,6 @@ namespace rpc
                 RPC_ASSERT(false);
                 CO_RETURN ret;
             }
-            // if (!new_proxy_added)
-            // {
-            //     // This is now safe because self_ref keeps us alive
-            //     add_external_ref();
-            // }
         }
         if (!is_new && rule == object_proxy_creation_rule::RELEASE_IF_NOT_NEW)
         {
@@ -541,9 +523,8 @@ namespace rpc
             // as this is an out parameter the callee will be doing an add ref if the object proxy is already
             // found we can do a release
             RPC_ASSERT(!new_proxy_added);
-            uint64_t ref_count = 0;
             auto ret = CO_AWAIT sp_release(
-                object_id, is_optimistic ? rpc::release_options::optimistic : rpc::release_options::normal, ref_count);
+                object_id, is_optimistic ? rpc::release_options::optimistic : rpc::release_options::normal);
             if (ret == error::OK())
             {
                 // // This is now safe because self_ref keeps us alive

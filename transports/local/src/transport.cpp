@@ -17,8 +17,8 @@ namespace rpc::local
         set_status(rpc::transport_status::CONNECTED);
     }
 
-    parent_transport::parent_transport(std::string name, rpc::zone zone_id, std::shared_ptr<child_transport> parent)
-        : rpc::transport(name, zone_id, parent->get_zone_id())
+    parent_transport::parent_transport(std::string name, std::shared_ptr<child_transport> parent)
+        : rpc::transport(name, parent->get_adjacent_zone_id(), parent->get_zone_id())
         , parent_(parent)
     {
         // Local transports are always immediately available (in-process)
@@ -118,7 +118,6 @@ namespace rpc::local
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -144,7 +143,6 @@ namespace rpc::local
             caller_zone_id,
             known_direction_zone_id,
             build_out_param_channel,
-            reference_count,
             in_back_channel,
             out_back_channel);
 
@@ -157,7 +155,6 @@ namespace rpc::local
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -167,14 +164,8 @@ namespace rpc::local
             CO_RETURN rpc::error::ZONE_NOT_FOUND();
         }
 
-        auto error_code = CO_AWAIT parent->inbound_release(protocol_version,
-            destination_zone_id,
-            object_id,
-            caller_zone_id,
-            options,
-            reference_count,
-            in_back_channel,
-            out_back_channel);
+        auto error_code = CO_AWAIT parent->inbound_release(
+            protocol_version, destination_zone_id, object_id, caller_zone_id, options, in_back_channel, out_back_channel);
 
         CO_RETURN error_code;
     }
@@ -309,7 +300,6 @@ namespace rpc::local
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -326,7 +316,6 @@ namespace rpc::local
             caller_zone_id,
             known_direction_zone_id,
             build_out_param_channel,
-            reference_count,
             in_back_channel,
             out_back_channel);
     }
@@ -337,7 +326,6 @@ namespace rpc::local
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -347,14 +335,8 @@ namespace rpc::local
             CO_RETURN rpc::error::ZONE_NOT_FOUND();
         }
 
-        CO_RETURN CO_AWAIT child->inbound_release(protocol_version,
-            destination_zone_id,
-            object_id,
-            caller_zone_id,
-            options,
-            reference_count,
-            in_back_channel,
-            out_back_channel);
+        CO_RETURN CO_AWAIT child->inbound_release(
+            protocol_version, destination_zone_id, object_id, caller_zone_id, options, in_back_channel, out_back_channel);
     }
 
     CORO_TASK(void)

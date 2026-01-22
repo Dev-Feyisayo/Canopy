@@ -37,7 +37,7 @@ namespace rpc::dodgy
 
     // Connection handshake
     CORO_TASK(int)
-    dodgy_transport::connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
+    dodgy_transport::inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
     {
         RPC_DEBUG("dodgy_transport::connect zone={}", get_zone_id().get_val());
 
@@ -223,7 +223,6 @@ namespace rpc::dodgy
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -253,7 +252,6 @@ namespace rpc::dodgy
             CO_RETURN ret;
         }
 
-        reference_count = response_data.ref_count;
         out_back_channel.swap(response_data.back_channel);
         if (response_data.err_code != rpc::error::OK())
         {
@@ -273,7 +271,6 @@ namespace rpc::dodgy
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -312,7 +309,6 @@ namespace rpc::dodgy
 
         RPC_DEBUG("dodgy_transport::outbound_release complete zone={}", get_zone_id().get_val());
 
-        reference_count = response.ref_count;
         out_back_channel.swap(response.back_channel);
 
         CO_RETURN rpc::error::OK();
@@ -889,7 +885,6 @@ namespace rpc::dodgy
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_add_ref for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_add_ref(prefix.version,
@@ -898,7 +893,6 @@ namespace rpc::dodgy
             {request.caller_zone_id},
             {request.known_direction_zone_id},
             (rpc::add_ref_options)request.build_out_param_channel,
-            ref_count,
             request.back_channel,
             out_back_channel);
 
@@ -909,7 +903,7 @@ namespace rpc::dodgy
 
         auto err = CO_AWAIT send_payload(prefix.version,
             message_direction::receive,
-            addref_receive{.ref_count = ref_count, .back_channel = std::move(out_back_channel), .err_code = ret},
+            addref_receive{.back_channel = std::move(out_back_channel), .err_code = ret},
             prefix.sequence_number);
         if (err != rpc::error::OK())
         {
@@ -934,7 +928,6 @@ namespace rpc::dodgy
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_release for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_release(prefix.version,
@@ -942,7 +935,6 @@ namespace rpc::dodgy
             {request.object_id},
             {request.caller_zone_id},
             request.options,
-            ref_count,
             request.back_channel,
             out_back_channel);
 
@@ -953,7 +945,7 @@ namespace rpc::dodgy
 
         auto err = CO_AWAIT send_payload(prefix.version,
             message_direction::receive,
-            release_receive{.ref_count = ref_count, .back_channel = std::move(out_back_channel), .err_code = ret},
+            release_receive{.back_channel = std::move(out_back_channel), .err_code = ret},
             prefix.sequence_number);
         if (err != rpc::error::OK())
         {

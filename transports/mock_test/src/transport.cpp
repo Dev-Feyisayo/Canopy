@@ -62,7 +62,7 @@ namespace rpc::mock_test
     }
 
     CORO_TASK(int)
-    mock_transport::connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
+    mock_transport::inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
     {
         std::ignore = input_descr;
         std::ignore = output_descr;
@@ -170,7 +170,6 @@ namespace rpc::mock_test
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -187,7 +186,6 @@ namespace rpc::mock_test
             CO_RETURN forced_error_code_.load(std::memory_order_acquire);
         }
 
-        reference_count++;
         CO_RETURN rpc::error::OK();
     }
 
@@ -197,7 +195,6 @@ namespace rpc::mock_test
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -213,10 +210,6 @@ namespace rpc::mock_test
             CO_RETURN forced_error_code_.load(std::memory_order_acquire);
         }
 
-        if (reference_count > 0)
-        {
-            reference_count--;
-        }
         CO_RETURN rpc::error::OK();
     }
 

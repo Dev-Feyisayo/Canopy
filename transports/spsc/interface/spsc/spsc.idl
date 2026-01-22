@@ -126,7 +126,6 @@ namespace rpc
             
         struct addref_receive
         {
-            uint64_t ref_count;
             std::vector<rpc::back_channel_entry> back_channel;
             int err_code;
         };

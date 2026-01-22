@@ -137,15 +137,14 @@ namespace rpc
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
                 child->on_service_add_ref(
-                    zone_id, destination_zone_id, object_id, caller_zone_id, known_direction_zone_id, options, reference_count);
+                    zone_id, destination_zone_id, object_id, caller_zone_id, known_direction_zone_id, options);
             }
         }
     }
@@ -154,15 +153,13 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_service_release(
-                    zone_id, destination_zone_id, object_id, caller_zone_id, options, reference_count);
+                child->on_service_release(zone_id, destination_zone_id, object_id, caller_zone_id, options);
             }
         }
     }
@@ -289,15 +286,14 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
                 child->on_service_proxy_add_ref(
-                    zone_id, destination_zone_id, caller_zone_id, object_id, known_direction_zone_id, options, reference_count);
+                    zone_id, destination_zone_id, caller_zone_id, object_id, known_direction_zone_id, options);
             }
         }
     }
@@ -306,39 +302,37 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_service_proxy_release(
-                    zone_id, destination_zone_id, caller_zone_id, object_id, options, reference_count);
+                child->on_service_proxy_release(zone_id, destination_zone_id, caller_zone_id, object_id, options);
             }
         }
     }
 
     void multiplexing_telemetry_service::on_service_proxy_add_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_service_proxy_add_external_ref(zone_id, destination_zone_id, caller_zone_id, ref_count);
+                child->on_service_proxy_add_external_ref(zone_id, destination_zone_id, caller_zone_id);
             }
         }
     }
 
     void multiplexing_telemetry_service::on_service_proxy_release_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_service_proxy_release_external_ref(zone_id, destination_zone_id, caller_zone_id, ref_count);
+                child->on_service_proxy_release_external_ref(zone_id, destination_zone_id, caller_zone_id);
             }
         }
     }
@@ -768,21 +762,14 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_transport_outbound_add_ref(zone_id,
-                    adjacent_zone_id,
-                    destination_zone_id,
-                    caller_zone_id,
-                    object_id,
-                    known_direction_zone_id,
-                    options,
-                    reference_count);
+                child->on_transport_outbound_add_ref(
+                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, known_direction_zone_id, options);
             }
         }
     }
@@ -792,15 +779,14 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
                 child->on_transport_outbound_release(
-                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, options, reference_count);
+                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, options);
             }
         }
     }
@@ -894,21 +880,14 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
-                child->on_transport_inbound_add_ref(zone_id,
-                    adjacent_zone_id,
-                    destination_zone_id,
-                    caller_zone_id,
-                    object_id,
-                    known_direction_zone_id,
-                    options,
-                    reference_count);
+                child->on_transport_inbound_add_ref(
+                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, known_direction_zone_id, options);
             }
         }
     }
@@ -918,15 +897,14 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         for (const auto& child : children_)
         {
             if (child)
             {
                 child->on_transport_inbound_release(
-                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, options, reference_count);
+                    zone_id, adjacent_zone_id, destination_zone_id, caller_zone_id, object_id, options);
             }
         }
     }

@@ -402,18 +402,16 @@ namespace comprehensive
                 auto child_zone = rpc::zone{new_zone_id};
                 auto zone_name = name_ + "_child_" + std::to_string(new_zone_id);
 
-                auto child_transport = std::make_shared<rpc::local::child_transport>(zone_name,
-                    service,
-                    child_zone,
-                    rpc::local::parent_transport::bind<i_demo_service, i_demo_service>(child_zone,
-                        [](const rpc::shared_ptr<i_demo_service>& parent,
-                            rpc::shared_ptr<i_demo_service>& child,
-                            const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(int)
-                        {
-                            child = rpc::shared_ptr<i_demo_service>(
-                                new demo_service_impl(child_service_ptr->get_name().c_str(), child_service_ptr));
-                            CO_RETURN rpc::error::OK();
-                        }));
+                auto child_transport = std::make_shared<rpc::local::child_transport>(zone_name, service, child_zone);
+                child_transport->set_child_entry_point<i_demo_service, i_demo_service>(
+                    [](const rpc::shared_ptr<i_demo_service>& parent,
+                        rpc::shared_ptr<i_demo_service>& child,
+                        const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(int)
+                    {
+                        child = rpc::shared_ptr<i_demo_service>(
+                            new demo_service_impl(child_service_ptr->get_name().c_str(), child_service_ptr));
+                        CO_RETURN rpc::error::OK();
+                    });
 
                 auto ret = CO_AWAIT service->connect_to_zone(zone_name.c_str(),
                     child_transport,

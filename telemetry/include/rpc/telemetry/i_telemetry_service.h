@@ -74,15 +74,13 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
-            rpc::add_ref_options options,
-            uint64_t reference_count) const
+            rpc::add_ref_options options) const
             = 0;
         virtual void on_service_release(zone zone_id,
             destination_zone destination_zone_id,
             object object_id,
             caller_zone caller_zone_id,
-            release_options options,
-            uint64_t reference_count) const
+            release_options options) const
             = 0;
         virtual void on_service_object_released(
             zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id, object object_id) const
@@ -132,15 +130,13 @@ namespace rpc
             caller_zone caller_zone_id,
             object object_id,
             known_direction_zone known_direction_zone_id,
-            rpc::add_ref_options options,
-            uint64_t reference_count) const
+            rpc::add_ref_options options) const
             = 0;
         virtual void on_service_proxy_release(zone zone_id,
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             object object_id,
-            release_options options,
-            uint64_t reference_count) const
+            release_options options) const
             = 0;
         virtual void on_service_proxy_object_released(
             zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id, object object_id) const
@@ -149,10 +145,10 @@ namespace rpc
             zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id) const
             = 0;
         virtual void on_service_proxy_add_external_ref(
-            zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id, int ref_count) const
+            zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id) const
             = 0;
         virtual void on_service_proxy_release_external_ref(
-            zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id, int ref_count) const
+            zone zone_id, destination_zone destination_zone_id, caller_zone caller_zone_id) const
             = 0;
 
         // i_marshaller methods for transport
@@ -204,16 +200,14 @@ namespace rpc
             caller_zone caller_zone_id,
             object object_id,
             known_direction_zone known_direction_zone_id,
-            add_ref_options options,
-            uint64_t reference_count) const
+            add_ref_options options) const
             = 0;
         virtual void on_transport_outbound_release(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             object object_id,
-            release_options options,
-            uint64_t reference_count) const
+            release_options options) const
             = 0;
         virtual void on_transport_outbound_object_released(zone zone_id,
             zone adjacent_zone_id,
@@ -254,16 +248,14 @@ namespace rpc
             caller_zone caller_zone_id,
             object object_id,
             known_direction_zone known_direction_zone_id,
-            add_ref_options options,
-            uint64_t reference_count) const
+            add_ref_options options) const
             = 0;
         virtual void on_transport_inbound_release(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             object object_id,
-            release_options options,
-            uint64_t reference_count) const
+            release_options options) const
             = 0;
         virtual void on_transport_inbound_object_released(zone zone_id,
             zone adjacent_zone_id,

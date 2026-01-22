@@ -680,7 +680,7 @@ When `rpc::shared_ptr<i_foo> foo_proxy` is created to a remote object:
    - Object proxy's `shared_count_` increments from 0→1
    - Detects 0→1 transition (first reference to this object in this zone)
    - Calls `service_proxy->add_external_ref()` (keeps service_proxy alive)
-   - Calls `CO_AWAIT service_proxy->sp_add_ref(object_id, options::normal, ref_count)`
+   - Calls `CO_AWAIT service_proxy->sp_add_ref(object_id, options::normal)`
 
 3. **Service Proxy Relay** (Caller → Intermediates → Destination):
    - Service proxies relay `sp_add_ref()` through zone hierarchy
@@ -708,7 +708,7 @@ When `rpc::shared_ptr<i_foo> foo_proxy` is destroyed:
    - Calls `service_proxy->on_object_proxy_released(shared_from_this(), is_optimistic=false)`
 
 3. **Service Proxy Cleanup** (`cleanup_after_object`):
-   - Calls `CO_AWAIT service_proxy->sp_release(object_id, release_options::normal, ref_count)`
+   - Calls `CO_AWAIT service_proxy->sp_release(object_id, release_options::normal)`
    - Service proxies relay `sp_release()` through zone hierarchy to destination
    - Calls `inner_release_external_ref()` (decrements `lifetime_lock_count_`)
    - If `inner_count == 0 && is_responsible_for_cleaning_up_service_`, calls `svc->remove_zone_proxy()`
@@ -1511,7 +1511,6 @@ public:
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
         = 0;
@@ -1522,7 +1521,6 @@ public:
         object object_id,
         caller_zone caller_zone_id,
         release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
         = 0;
@@ -1715,7 +1713,6 @@ class spsc::channel_manager {
     coro::task<void> receive_pump_task();
 
     // Service proxy registration
-    std::atomic<int> service_proxy_ref_count_{0};
     void attach_service_proxy();
     coro::task<void> detach_service_proxy();
 };

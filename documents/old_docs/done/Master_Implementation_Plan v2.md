@@ -161,7 +161,7 @@ public:
         destination_zone destination_zone_id, object object_id,
          caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
-        add_ref_options build_out_param_channel, uint64_t& reference_count,
+        add_ref_options build_out_param_channel, 
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel,
         const std::shared_ptr<transport>& transport);
@@ -169,7 +169,6 @@ public:
     virtual CORO_TASK(int) outbound_release(uint64_t protocol_version,
         destination_zone destination_zone_id, object object_id,
         caller_zone caller_zone_id, release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel,
         const std::shared_ptr<transport>& transport);
@@ -725,7 +724,7 @@ CORO_TASK(int) add_ref(
     caller_zone caller_zone_id,
     known_direction_zone known_direction_zone_id,  // THE CLUE!
     add_ref_options options,
-    uint64_t& reference_count,
+    
     const std::vector<rpc::back_channel_entry>& in_back_channel,
     std::vector<rpc::back_channel_entry>& out_back_channel) = 0;
 ```
@@ -2666,7 +2665,7 @@ public:
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         add_ref_options options,
-        uint64_t& reference_count,
+        
         const std::vector<rpc::back_channel_entry>& in_back_channel,   // NEW
         std::vector<rpc::back_channel_entry>& out_back_channel          // NEW
     ) = 0;
@@ -2677,7 +2676,7 @@ public:
         object object_id,
         caller_zone caller_zone_id,
         release_options options,
-        uint64_t& reference_count,
+        
         const std::vector<rpc::back_channel_entry>& in_back_channel,   // NEW
         std::vector<rpc::back_channel_entry>& out_back_channel          // NEW
     ) = 0;
@@ -3464,15 +3463,13 @@ CORO_TYPED_TEST(pass_through_test, "manages reference counting") {
     auto pass_through = create_pass_through_A_to_C_via_B();
 
     // WHEN - add_ref called
-    uint64_t ref_count = 0;
     auto error = CO_AWAIT pass_through->add_ref(
         VERSION_3, destination_channel_zone{2}, destination_zone{3},
         object{100}, caller_zone{1},
-        known_direction_zone{2}, add_ref_options::normal, ref_count, {}, {});
+        known_direction_zone{2}, add_ref_options::normal, {}, {});
 
     // THEN - pass_through tracks count
     REQUIRE(error == rpc::error::OK());
-    REQUIRE(ref_count == 1);
     REQUIRE(pass_through->get_shared_count() == 1);
 }
 ```
@@ -3485,9 +3482,8 @@ CORO_TYPED_TEST(pass_through_test, "auto delete on zero counts") {
     std::weak_ptr<pass_through> weak_pt = pass_through;
 
     // Increment then decrement shared count to 1, then to 0
-    uint64_t ref_count = 0;
-    CO_AWAIT pass_through->add_ref(..., ref_count, ...);  // shared_count = 1
-    CO_AWAIT pass_through->release(..., ref_count, ...);  // shared_count = 0
+    CO_AWAIT pass_through->add_ref(...,  ...);  // shared_count = 1
+    CO_AWAIT pass_through->release(...,  ...);  // shared_count = 0
 
     // WHEN - both shared and optimistic counts are zero
     REQUIRE(pass_through->get_shared_count() == 0);
@@ -4265,13 +4261,11 @@ CORO_TYPED_TEST(y_topology_test, "object return via known_direction") {
 
     // WHEN - C returns object from D to Root
     // add_ref from Root to zone D with known_direction=zone C
-    uint64_t ref_count = 0;
     auto error = CO_AWAIT root->add_ref_to_remote_object(
-        object{100}, zone{7}, known_direction_zone{3}, ref_count);
+        object{100}, zone{7}, known_direction_zone{3});
 
     // THEN - bidirectional pair created via C
     REQUIRE(error == rpc::error::OK());
-    REQUIRE(ref_count == 1);
 
     // Verify reverse path exists
     auto reverse_proxy = root->find_proxy(dest=zone{1}, caller=zone{7});

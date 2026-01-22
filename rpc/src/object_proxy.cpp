@@ -52,8 +52,7 @@ namespace rpc
             // service_proxy->add_external_ref();
             // Call service_proxy->sp_add_ref() to increment remote service's reference count
             // This MUST happen sequentially to ensure remote count ≥ 1 before constructor returns
-            uint64_t ref_count = 0;
-            auto err = CO_AWAIT service_proxy->sp_add_ref(object_id_, options, {0}, ref_count);
+            auto err = CO_AWAIT service_proxy->sp_add_ref(object_id_, options, {0});
             if (err)
             {
                 // Rollback local counter on failure

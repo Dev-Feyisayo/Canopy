@@ -120,7 +120,7 @@ namespace rpc
         zone get_zone_id() const { return zone_id_; }
         zone get_adjacent_zone_id() const { return adjacent_zone_id_; }
 
-        virtual CORO_TASK(int) connect(interface_descriptor input_descr, interface_descriptor& output_descr) = 0;
+        CORO_TASK(int) connect(interface_descriptor input_descr, interface_descriptor& output_descr);
 
         // inbound i_marshaller interface abstraction
         // Routes to transport_ for remote zones or service_ for local zone
@@ -165,7 +165,7 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
+
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel);
 
@@ -175,7 +175,7 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             release_options options,
-            uint64_t& reference_count,
+
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel);
 
@@ -235,7 +235,6 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel) final;
 
@@ -245,7 +244,6 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             release_options options,
-            uint64_t& reference_count,
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel) final;
 
@@ -261,6 +259,9 @@ namespace rpc
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             const std::vector<back_channel_entry>& in_back_channel) final;
+
+        // tells the transport to connect
+        virtual CORO_TASK(int) inner_connect(interface_descriptor input_descr, interface_descriptor& output_descr) = 0;
 
         // outbound functions to be implemented by derived classes
         // Routes to transport_ for remote zones or service_ for local zone
@@ -304,7 +305,7 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
+
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel)
             = 0;
@@ -314,7 +315,7 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             release_options options,
-            uint64_t& reference_count,
+
             const std::vector<back_channel_entry>& in_back_channel,
             std::vector<back_channel_entry>& out_back_channel)
             = 0;

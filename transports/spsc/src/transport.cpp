@@ -37,7 +37,7 @@ namespace rpc::spsc
 
     // Connection handshake
     CORO_TASK(int)
-    spsc_transport::connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
+    spsc_transport::inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
     {
         RPC_DEBUG("spsc_transport::connect zone={}", get_zone_id().get_val());
 
@@ -219,7 +219,6 @@ namespace rpc::spsc
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -249,7 +248,6 @@ namespace rpc::spsc
             CO_RETURN ret;
         }
 
-        reference_count = response_data.ref_count;
         out_back_channel.swap(response_data.back_channel);
         if (response_data.err_code != rpc::error::OK())
         {
@@ -276,11 +274,9 @@ namespace rpc::spsc
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
-        reference_count = 0;
         RPC_DEBUG("spsc_transport::outbound_release zone={}", get_zone_id().get_val());
 
         // Check transport status
@@ -853,7 +849,6 @@ namespace rpc::spsc
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_add_ref for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_add_ref(prefix.version,
@@ -862,7 +857,6 @@ namespace rpc::spsc
             {request.caller_zone_id},
             {request.known_direction_zone_id},
             (rpc::add_ref_options)request.build_out_param_channel,
-            ref_count,
             request.back_channel,
             out_back_channel);
 
@@ -873,7 +867,7 @@ namespace rpc::spsc
 
         send_payload(prefix.version,
             message_direction::receive,
-            addref_receive{.ref_count = ref_count, .back_channel = std::move(out_back_channel), .err_code = ret},
+            addref_receive{.back_channel = std::move(out_back_channel), .err_code = ret},
             prefix.sequence_number);
         RPC_DEBUG("add_ref request complete");
         CO_RETURN;
@@ -892,7 +886,6 @@ namespace rpc::spsc
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_release for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_release(prefix.version,
@@ -900,7 +893,6 @@ namespace rpc::spsc
             {request.object_id},
             {request.caller_zone_id},
             request.options,
-            ref_count,
             request.back_channel,
             out_back_channel);
 

@@ -294,7 +294,6 @@ int add_ref_enclave(uint64_t protocol_version,
     uint64_t caller_zone_id,
     uint64_t known_direction_zone_id,
     char build_out_param_channel,
-    uint64_t* reference_count,
     size_t sz_in_back_channel,
     const char* in_back_channel_buf,
     size_t sz_out_back_channel,
@@ -303,7 +302,6 @@ int add_ref_enclave(uint64_t protocol_version,
 {
     if (protocol_version > rpc::get_version())
     {
-        *reference_count = 0;
         return rpc::error::INCOMPATIBLE_SERVICE();
     }
 
@@ -323,7 +321,6 @@ int add_ref_enclave(uint64_t protocol_version,
         {caller_zone_id},
         {known_direction_zone_id},
         static_cast<rpc::add_ref_options>(build_out_param_channel),
-        *reference_count,
         in_back_channel,
         out_back_channel);
 
@@ -354,7 +351,6 @@ int release_enclave(uint64_t protocol_version,
     uint64_t object_id,
     uint64_t caller_zone_id,
     char options,
-    uint64_t* reference_count,
     size_t sz_in_back_channel,
     const char* in_back_channel_buf,
     size_t sz_out_back_channel,
@@ -363,7 +359,6 @@ int release_enclave(uint64_t protocol_version,
 {
     if (protocol_version > rpc::get_version())
     {
-        *reference_count = 0;
         return rpc::error::INCOMPATIBLE_SERVICE();
     }
 
@@ -382,7 +377,6 @@ int release_enclave(uint64_t protocol_version,
         {object_id},
         {caller_zone_id},
         static_cast<rpc::release_options>(options),
-        *reference_count,
         in_back_channel,
         out_back_channel);
 

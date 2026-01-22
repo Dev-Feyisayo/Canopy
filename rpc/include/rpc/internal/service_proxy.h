@@ -72,10 +72,7 @@ namespace rpc
 
         encoding get_encoding() const { return enc_; }
 
-        void set_encoding(encoding enc)
-        {
-            enc_ = enc;
-        }
+        void set_encoding(encoding enc) { enc_ = enc; }
 
         // Set transport for this service_proxy
         void set_transport(std::shared_ptr<transport> transport) { transport_ = transport; }
@@ -94,12 +91,10 @@ namespace rpc
         [[nodiscard]] CORO_TASK(int) sp_try_cast(
             destination_zone destination_zone_id, object object_id, std::function<interface_ordinal(uint64_t)> id_getter);
 
-        [[nodiscard]] CORO_TASK(int) sp_add_ref(object object_id,
-            add_ref_options build_out_param_channel,
-            known_direction_zone known_direction_zone_id,
-            uint64_t& ref_count);
+        [[nodiscard]] CORO_TASK(int) sp_add_ref(
+            object object_id, add_ref_options build_out_param_channel, known_direction_zone known_direction_zone_id);
 
-        CORO_TASK(int) sp_release(object object_id, release_options options, uint64_t& ref_count);
+        CORO_TASK(int) sp_release(object object_id, release_options options);
 
         void on_object_proxy_released(const std::shared_ptr<object_proxy>& op, bool optimistic);
 

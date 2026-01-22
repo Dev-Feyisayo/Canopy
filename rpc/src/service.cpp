@@ -345,8 +345,7 @@ namespace rpc
         if (destination_zone && input_interface)
         {
             auto object_id = casting_interface::get_object_id(*input_interface);
-            uint64_t ref_count = 0;
-            auto ret = CO_AWAIT destination_zone->sp_release(object_id, release_options::normal, ref_count);
+            auto ret = CO_AWAIT destination_zone->sp_release(object_id, release_options::normal);
             if (ret == error::OK())
             {
                 // destination_zone->release_external_ref();
@@ -373,7 +372,6 @@ namespace rpc
         RPC_ASSERT(caller_zone_id.is_set());
         RPC_ASSERT(destination_zone_id.is_set());
 
-        uint64_t temp_ref_count = 0;
         std::vector<rpc::back_channel_entry> empty_in;
         std::vector<rpc::back_channel_entry> empty_out;
         int err_code = 0;
@@ -437,7 +435,6 @@ namespace rpc
             caller_zone_id,
             zone_id_.as_known_direction_zone(),
             rpc::add_ref_options::build_destination_route | rpc::add_ref_options::build_caller_route,
-            temp_ref_count,
             empty_in,
             empty_out);
         if (err_code != rpc::error::OK())
@@ -453,8 +450,7 @@ namespace rpc
                 caller_zone_id,
                 object_id,
                 zone_id_.as_known_direction_zone(),
-                rpc::add_ref_options::build_destination_route | rpc::add_ref_options::build_caller_route,
-                temp_ref_count);
+                rpc::add_ref_options::build_destination_route | rpc::add_ref_options::build_caller_route);
         }
 #endif
 
@@ -565,7 +561,6 @@ namespace rpc
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -588,7 +583,6 @@ namespace rpc
                     caller_zone_id,
                     zone_id_.as_known_direction_zone(),
                     add_ref_options::build_caller_route,
-                    reference_count,
                     in_back_channel,
                     out_back_channel);
                 if (error != rpc::error::OK())
@@ -625,7 +619,6 @@ namespace rpc
                     caller_zone_id,
                     zone_id_.as_known_direction_zone(),
                     build_out_param_channel & (~add_ref_options::build_caller_route),
-                    reference_count,
                     in_back_channel,
                     out_back_channel);
             }
@@ -633,14 +626,12 @@ namespace rpc
             // service has the implementation
             if (protocol_version < rpc::LOWEST_SUPPORTED_VERSION || protocol_version > rpc::HIGHEST_SUPPORTED_VERSION)
             {
-                reference_count = 0;
                 RPC_ERROR("Unsupported service version {} in add_ref", protocol_version);
                 CO_RETURN rpc::error::INVALID_VERSION();
             }
 
             if (object_id == dummy_object_id)
             {
-                reference_count = 0;
                 CO_RETURN rpc::error::OK();
             }
 
@@ -648,7 +639,6 @@ namespace rpc
             auto stub = weak_stub.lock();
             if (!stub)
             {
-                reference_count = 0;
                 RPC_ASSERT(false);
                 CO_RETURN rpc::error::OBJECT_NOT_FOUND();
             }
@@ -663,18 +653,13 @@ namespace rpc
                 }
             }
 
-            reference_count = stub->add_ref(!!(build_out_param_channel & add_ref_options::optimistic), caller_zone_id);
+            stub->add_ref(!!(build_out_param_channel & add_ref_options::optimistic), caller_zone_id);
         }
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
-            telemetry_service->on_service_add_ref(zone_id_,
-                destination_zone_id,
-                object_id,
-                caller_zone_id,
-                known_direction_zone_id,
-                build_out_param_channel,
-                reference_count);
+            telemetry_service->on_service_add_ref(
+                zone_id_, destination_zone_id, object_id, caller_zone_id, known_direction_zone_id, build_out_param_channel);
         }
 #endif
         CO_RETURN rpc::error::OK();
@@ -719,7 +704,6 @@ namespace rpc
         object object_id,
         caller_zone caller_zone_id,
         release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -731,7 +715,6 @@ namespace rpc
 
         if (protocol_version < rpc::LOWEST_SUPPORTED_VERSION || protocol_version > rpc::HIGHEST_SUPPORTED_VERSION)
         {
-            reference_count = 0;
             RPC_ERROR("Unsupported service version {} in release", protocol_version);
             CO_RETURN rpc::error::INVALID_VERSION();
         }
@@ -747,7 +730,6 @@ namespace rpc
                 if (item == stubs_.end())
                 {
                     // Stub has been deleted - can happen with optimistic_ptr when shared_ptr is released
-                    reference_count = 0;
                     CO_RETURN rpc::error::OBJECT_NOT_FOUND();
                 }
 
@@ -756,7 +738,6 @@ namespace rpc
 
             if (!stub)
             {
-                reference_count = 0;
                 RPC_ASSERT(false);
                 CO_RETURN rpc::error::OBJECT_NOT_FOUND();
             }
@@ -795,7 +776,6 @@ namespace rpc
                         }
                         else
                         {
-                            reference_count = 0;
                             RPC_ASSERT(false);
                             CO_RETURN rpc::error::OBJECT_NOT_FOUND();
                         }
@@ -825,12 +805,10 @@ namespace rpc
             }
         }
 
-        reference_count = count;
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
-            telemetry_service->on_service_release(
-                zone_id_, destination_zone_id, object_id, caller_zone_id, options, reference_count);
+            telemetry_service->on_service_release(zone_id_, destination_zone_id, object_id, caller_zone_id, options);
         }
 #endif
         CO_RETURN rpc::error::OK();
@@ -1280,7 +1258,6 @@ namespace rpc
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel,
         const std::shared_ptr<transport>& transport)
@@ -1292,7 +1269,6 @@ namespace rpc
             caller_zone_id,
             known_direction_zone_id,
             build_out_param_channel,
-            reference_count,
             in_back_channel,
             out_back_channel);
     }
@@ -1303,20 +1279,13 @@ namespace rpc
         object object_id,
         caller_zone caller_zone_id,
         release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel,
         const std::shared_ptr<transport>& transport)
     {
         // Default implementation - directly call the transport
-        CO_RETURN CO_AWAIT transport->release(protocol_version,
-            destination_zone_id,
-            object_id,
-            caller_zone_id,
-            options,
-            reference_count,
-            in_back_channel,
-            out_back_channel);
+        CO_RETURN CO_AWAIT transport->release(
+            protocol_version, destination_zone_id, object_id, caller_zone_id, options, in_back_channel, out_back_channel);
     }
 
 }

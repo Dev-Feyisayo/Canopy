@@ -75,17 +75,17 @@ namespace comprehensive
             RPC_INFO("Creating child service in Zone {}", child_zone_id.get_val());
 
             // Create child transport connecting to parent
-            auto child_transport = std::make_shared<rpc::local::child_transport>("child_service",
-                root_service,
-                child_zone_id,
-                rpc::local::parent_transport::bind<i_demo_service, i_demo_service>(child_zone_id,
-                    [&](const rpc::shared_ptr<i_demo_service>& parent,
-                        rpc::shared_ptr<i_demo_service>& new_service,
-                        const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(int)
-                    {
-                        new_service = create_demo_service("child_service", child_service_ptr);
-                        CO_RETURN rpc::error::OK();
-                    }));
+            auto child_transport
+                = std::make_shared<rpc::local::child_transport>("child_service", root_service, child_zone_id);
+
+            child_transport->set_child_entry_point<i_demo_service, i_demo_service>(
+                [&](const rpc::shared_ptr<i_demo_service>& parent,
+                    rpc::shared_ptr<i_demo_service>& new_service,
+                    const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(int)
+                {
+                    new_service = create_demo_service("child_service", child_service_ptr);
+                    CO_RETURN rpc::error::OK();
+                });
 
             // Connect parent to child
             rpc::shared_ptr<i_demo_service> child_service;

@@ -52,7 +52,7 @@ namespace rpc::tcp
 
     // Connection handshake
     CORO_TASK(int)
-    tcp_transport::connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
+    tcp_transport::inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
     {
         RPC_DEBUG("tcp_transport::connect zone={}", get_zone_id().get_val());
 
@@ -224,7 +224,6 @@ namespace rpc::tcp
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -255,7 +254,6 @@ namespace rpc::tcp
             CO_RETURN ret;
         }
 
-        reference_count = response.ref_count;
         out_back_channel.swap(response.back_channel);
         if (response.err_code != rpc::error::OK())
         {
@@ -282,7 +280,6 @@ namespace rpc::tcp
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -328,7 +325,6 @@ namespace rpc::tcp
 
         RPC_DEBUG("tcp_transport::outbound_release complete zone={}", get_zone_id().get_val());
 
-        reference_count = response.ref_count;
         out_back_channel.swap(response.back_channel);
 
         CO_RETURN rpc::error::OK();
@@ -833,7 +829,6 @@ namespace rpc::tcp
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_add_ref for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_add_ref(prefix.version,
@@ -842,7 +837,6 @@ namespace rpc::tcp
             {request.caller_zone_id},
             {request.known_direction_zone_id},
             (rpc::add_ref_options)request.build_out_param_channel,
-            ref_count,
             request.back_channel,
             out_back_channel);
 
@@ -853,7 +847,7 @@ namespace rpc::tcp
 
         auto err = CO_AWAIT send_payload(prefix.version,
             message_direction::receive,
-            addref_receive{.ref_count = ref_count, .back_channel = std::move(out_back_channel), .err_code = ret},
+            addref_receive{.back_channel = std::move(out_back_channel), .err_code = ret},
             prefix.sequence_number);
         if (err != rpc::error::OK())
         {
@@ -878,7 +872,6 @@ namespace rpc::tcp
             CO_RETURN;
         }
 
-        uint64_t ref_count = 0;
         std::vector<rpc::back_channel_entry> out_back_channel;
         // Call inbound_release for routing - transport will route to correct destination
         auto ret = CO_AWAIT inbound_release(prefix.version,
@@ -886,7 +879,6 @@ namespace rpc::tcp
             {request.object_id},
             {request.caller_zone_id},
             request.options,
-            ref_count,
             request.back_channel,
             out_back_channel);
 
@@ -897,7 +889,7 @@ namespace rpc::tcp
 
         auto err = CO_AWAIT send_payload(prefix.version,
             message_direction::receive,
-            release_receive{.ref_count = ref_count, .back_channel = std::move(out_back_channel), .err_code = ret},
+            release_receive{.back_channel = std::move(out_back_channel), .err_code = ret},
             prefix.sequence_number);
         if (err != rpc::error::OK())
         {

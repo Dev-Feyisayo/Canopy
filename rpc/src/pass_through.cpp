@@ -249,7 +249,6 @@ namespace rpc
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -312,7 +311,6 @@ namespace rpc
                 caller_zone_id,
                 known_direction_zone_id,
                 build_out_param_channel & ~add_ref_options::build_caller_route,
-                reference_count,
                 in_back_channel,
                 out_back_channel);
 
@@ -336,7 +334,6 @@ namespace rpc
                 caller_zone_id,
                 known_direction_zone_id,
                 build_out_param_channel & ~add_ref_options::build_destination_route,
-                reference_count,
                 in_back_channel,
                 out_back_channel);
 
@@ -394,7 +391,6 @@ namespace rpc
         object object_id,
         caller_zone caller_zone_id,
         release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -422,14 +418,8 @@ namespace rpc
         // Increment function count to track this active call
         function_count_.fetch_add(1, std::memory_order_acq_rel);
 
-        auto result = CO_AWAIT target_transport->release(protocol_version,
-            destination_zone_id,
-            object_id,
-            caller_zone_id,
-            options,
-            reference_count,
-            in_back_channel,
-            out_back_channel);
+        auto result = CO_AWAIT target_transport->release(
+            protocol_version, destination_zone_id, object_id, caller_zone_id, options, in_back_channel, out_back_channel);
 
         // Decrement function count after completing the call
         uint64_t remaining_count = function_count_.fetch_sub(1, std::memory_order_acq_rel);

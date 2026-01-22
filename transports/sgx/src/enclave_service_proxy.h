@@ -37,7 +37,8 @@ namespace rpc
             const std::shared_ptr<rpc::service>& svc,
             std::string filename);
 
-        CORO_TASK(int) connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr) override;
+        CORO_TASK(int)
+        inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr) override;
 
         int send(uint64_t protocol_version,
             encoding encoding,
@@ -73,7 +74,6 @@ namespace rpc
             caller_zone caller_zone_id,
             known_direction_zone known_direction_zone_id,
             add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
         int release(uint64_t protocol_version,
@@ -81,7 +81,6 @@ namespace rpc
             object object_id,
             caller_zone caller_zone_id,
             rpc::release_options options,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 

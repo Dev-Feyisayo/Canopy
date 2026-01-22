@@ -110,7 +110,8 @@ namespace rpc::mock_test
         }
 
         // outbound i_marshaller implementations
-        CORO_TASK(int) connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr) override;
+        CORO_TASK(int)
+        inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr) override;
 
         CORO_TASK(int)
         outbound_send(uint64_t protocol_version,
@@ -153,7 +154,6 @@ namespace rpc::mock_test
             rpc::caller_zone caller_zone_id,
             rpc::known_direction_zone known_direction_zone_id,
             rpc::add_ref_options build_out_param_channel,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 
@@ -163,7 +163,6 @@ namespace rpc::mock_test
             rpc::object object_id,
             rpc::caller_zone caller_zone_id,
             rpc::release_options options,
-            uint64_t& reference_count,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 

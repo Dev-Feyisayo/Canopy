@@ -366,7 +366,7 @@ This system transforms the fuzz tester from a "find bugs" tool to a "find bugs a
 ● You're absolutely right! Let me analyze the specific failure point more carefully. Looking at the log sequence, let me trace exactly where zone 6 failed:
 
 ● Bash(grep -n "CHILD_5_6.*34.*20" /tmp/fuzz_output.log)
-  ⎿  3176:[2025-09-04 20:21:13.956] [info] [CHILD_6_7 = 7] service_proxy_add_external_ref: destination_channel_zone=[CHILD_5_6 = 6] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20] ref_count=1       
+  ⎿  3176:[2025-09-04 20:21:13.956] [info] [CHILD_6_7 = 7] service_proxy_add_external_ref: destination_channel_zone=[CHILD_5_6 = 6] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20]   
       3179:[2025-09-04 20:21:13.956] [info] [CHILD_5_6 = 6] service_add_ref: destination_channel_zone=[0] destination_zone=[FACTORY_8_34 = 34] object_id=2 caller_channel_zone=[0] caller_zone=[CHILD_19_20 = 20] options=1
       3180:[2025-09-04 20:21:13.956] [info] [CHILD_5_6 = 6] cloned_service_proxy_creation: name=[PARENT] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20]
       … +2 lines (ctrl+r to expand)
@@ -375,7 +375,7 @@ This system transforms the fuzz tester from a "find bugs" tool to a "find bugs a
 
 ● Bash(grep -A5 -B5 "CHILD_5_6.*cloned_service_proxy_creation.*FACTORY_8_34" /tmp/fuzz_output.log)
   ⎿  [2025-09-04 20:21:13.956] [info] [CHILD_6_7 = 7] cloned_service_proxy_creation: name=[PARENT] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20]                                        
-      [2025-09-04 20:21:13.956] [info] [CHILD_6_7 = 7] service_proxy_add_external_ref: destination_channel_zone=[CHILD_5_6 = 6] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20] ref_count=1
+      [2025-09-04 20:21:13.956] [info] [CHILD_6_7 = 7] service_proxy_add_external_ref: destination_channel_zone=[CHILD_5_6 = 6] destination_zone=[FACTORY_8_34 = 34] caller_zone=[CHILD_19_20 = 20]
       [DEBUG] inner_add_zone_proxy service zone: 7 destination_zone=34, caller_zone=20
       … +8 lines (ctrl+r to expand)
 
@@ -475,7 +475,7 @@ This system transforms the fuzz tester from a "find bugs" tool to a "find bugs a
 ● Bash(grep -n "CHILD_7_8.*20" /tmp/fuzz_output.log | head -10)
   ⎿  359:[2025-09-04 20:21:13.919] [info] [CHILD_7_8 = 8] stub_creation: object_id=1 address=94302902037992                                                                                    
       3012:[2025-09-04 20:21:13.954] [info] [CHILD_7_8 = 8] cloned_service_proxy_creation: name=[PARENT] destination_zone=[CHILD_19_20 = 20] caller_zone=[CHILD_7_8 = 8]
-      3013:[2025-09-04 20:21:13.954] [info] [CHILD_7_8 = 8] service_proxy_add_external_ref: destination_channel_zone=[CHILD_6_7 = 7] destination_zone=[CHILD_19_20 = 20] caller_zone=[CHILD_7_8 = 8] ref_count=1
+      3013:[2025-09-04 20:21:13.954] [info] [CHILD_7_8 = 8] service_proxy_add_external_ref: destination_channel_zone=[CHILD_6_7 = 7] destination_zone=[CHILD_19_20 = 20] caller_zone=[CHILD_7_8 = 8]
       … +6 lines (ctrl+r to expand)
 
 ● Perfect! I can see that Zone 8 established a connection to Zone 20. Let me look at the routing details:

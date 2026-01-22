@@ -394,12 +394,11 @@ namespace rpc
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         init_logger();
         logger_->info("{}{} service_add_ref: destination_zone={} object_id={} "
-                      "caller_zone={} known_direction_zone={} options={} reference_count={}{}",
+                      "caller_zone={} known_direction_zone={} options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
@@ -407,7 +406,7 @@ namespace rpc
             get_zone_name(caller_zone_id.get_val()),
             get_zone_name(known_direction_zone_id.get_val()),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
@@ -415,19 +414,17 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         init_logger();
         logger_->info("{}{} service_release: destination_zone={} object_id={} caller_zone={} "
-                      "options={} reference_count={}{}",
+                      "options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
             object_id.get_val(),
             get_zone_name(caller_zone_id.get_val()),
             static_cast<int>(options),
-            reference_count,
             reset_color());
     }
 
@@ -572,12 +569,11 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         init_logger();
         logger_->info("{}{} service_proxy_add_ref: destination_zone={} caller_zone={} "
-                      "known_direction_zone={} object_id={} options={} reference_count={}{}",
+                      "known_direction_zone={} object_id={} options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
@@ -585,7 +581,7 @@ namespace rpc
             get_zone_name(known_direction_zone_id.get_val()),
             object_id.get_val(),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
@@ -593,47 +589,44 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         init_logger();
         logger_->info("{}{} service_proxy_release: destination_zone={} caller_zone={} object_id={} "
-                      "options={} reference_count={}{}",
+                      "options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
             get_zone_name(caller_zone_id.get_val()),
             object_id.get_val(),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
     void console_telemetry_service::on_service_proxy_add_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         init_logger();
         logger_->info("{}{} service_proxy_add_external_ref: destination_zone={} "
-                      "caller_zone={} ref_count={}{}",
+                      "caller_zone={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
             get_zone_name(caller_zone_id.get_val()),
-            ref_count,
             reset_color());
     }
 
     void console_telemetry_service::on_service_proxy_release_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         init_logger();
         logger_->info("{}{} service_proxy_release_external_ref: destination_zone={} "
-                      "caller_zone={} ref_count={}{}",
+                      "caller_zone={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(destination_zone_id.get_val()),
             get_zone_name(caller_zone_id.get_val()),
-            ref_count,
             reset_color());
     }
 
@@ -1138,12 +1131,11 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         init_logger();
         logger_->info("{}{} transport_outbound_add_ref: adjacent_zone={} dest_zone={} caller_zone={} object={} "
-                      "known_direction_zone={} options={} reference_count={}{}",
+                      "known_direction_zone={} options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(adjacent_zone_id.get_val()),
@@ -1152,7 +1144,7 @@ namespace rpc
             object_id.get_val(),
             get_zone_name(known_direction_zone_id.get_val()),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
@@ -1161,13 +1153,12 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         init_logger();
 
         logger_->info("{}{} transport_outbound_release: adjacent_zone={} dest_zone={} caller_zone={} object={} "
-                      "options={} reference_count={}{}",
+                      "options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(adjacent_zone_id.get_val()),
@@ -1175,7 +1166,7 @@ namespace rpc
             get_zone_name(caller_zone_id.get_val()),
             object_id.get_val(),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
@@ -1282,12 +1273,11 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         init_logger();
         logger_->info("{}{} transport_inbound_add_ref: adjacent_zone={} dest_zone={} caller_zone={} object={} "
-                      "known_direction_zone={} options={} reference_count={}{}",
+                      "known_direction_zone={} options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(adjacent_zone_id.get_val()),
@@ -1296,7 +1286,7 @@ namespace rpc
             object_id.get_val(),
             get_zone_name(known_direction_zone_id.get_val()),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 
@@ -1305,12 +1295,11 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         init_logger();
         logger_->info("{}{} transport_inbound_release: adjacent_zone={} dest_zone={} caller_zone={} object={} "
-                      "options={} reference_count={}{}",
+                      "options={}{}",
             get_zone_color(zone_id.get_val()),
             get_zone_name(zone_id.get_val()),
             get_zone_name(adjacent_zone_id.get_val()),
@@ -1318,7 +1307,7 @@ namespace rpc
             get_zone_name(caller_zone_id.get_val()),
             object_id.get_val(),
             static_cast<int>(options),
-            reference_count,
+
             reset_color());
     }
 

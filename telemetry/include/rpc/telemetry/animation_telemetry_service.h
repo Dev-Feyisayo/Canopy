@@ -38,14 +38,12 @@ namespace rpc
             rpc::object object_id,
             rpc::caller_zone caller_zone_id,
             rpc::known_direction_zone known_direction_zone_id,
-            rpc::add_ref_options options,
-            uint64_t reference_count) const override;
+            rpc::add_ref_options options) const override;
         void on_service_release(rpc::zone zone_id,
             rpc::destination_zone destination_zone_id,
             rpc::object object_id,
             rpc::caller_zone caller_zone_id,
-            rpc::release_options options,
-            uint64_t reference_count) const override;
+            rpc::release_options options) const override;
 
         void on_service_proxy_creation(const std::string& service_name,
             const std::string& service_proxy_name,
@@ -69,22 +67,16 @@ namespace rpc
             rpc::caller_zone caller_zone_id,
             rpc::object object_id,
             rpc::known_direction_zone known_direction_zone_id,
-            rpc::add_ref_options options,
-            uint64_t reference_count) const override;
+            rpc::add_ref_options options) const override;
         void on_service_proxy_release(rpc::zone zone_id,
             rpc::destination_zone destination_zone_id,
             rpc::caller_zone caller_zone_id,
             rpc::object object_id,
-            rpc::release_options options,
-            uint64_t reference_count) const override;
-        void on_service_proxy_add_external_ref(rpc::zone zone_id,
-            rpc::destination_zone destination_zone_id,
-            rpc::caller_zone caller_zone_id,
-            int ref_count) const override;
-        void on_service_proxy_release_external_ref(rpc::zone zone_id,
-            rpc::destination_zone destination_zone_id,
-            rpc::caller_zone caller_zone_id,
-            int ref_count) const override;
+            rpc::release_options options) const override;
+        void on_service_proxy_add_external_ref(
+            rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const override;
+        void on_service_proxy_release_external_ref(
+            rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const override;
 
         void on_impl_creation(const std::string& name, uint64_t address, rpc::zone zone_id) const override;
         void on_impl_deletion(uint64_t address, rpc::zone zone_id) const override;
@@ -240,15 +232,13 @@ namespace rpc
             caller_zone caller_zone_id,
             object object_id,
             known_direction_zone known_direction_zone_id,
-            add_ref_options options,
-            uint64_t reference_count) const override;
+            add_ref_options options) const override;
         void on_transport_outbound_release(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             object object_id,
-            release_options options,
-            uint64_t reference_count) const override;
+            release_options options) const override;
         void on_transport_outbound_object_released(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,
@@ -286,15 +276,13 @@ namespace rpc
             caller_zone caller_zone_id,
             object object_id,
             known_direction_zone known_direction_zone_id,
-            add_ref_options options,
-            uint64_t reference_count) const override;
+            add_ref_options options) const override;
         void on_transport_inbound_release(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,
             caller_zone caller_zone_id,
             object object_id,
-            release_options options,
-            uint64_t reference_count) const override;
+            release_options options) const override;
         void on_transport_inbound_object_released(zone zone_id,
             zone adjacent_zone_id,
             destination_zone destination_zone_id,

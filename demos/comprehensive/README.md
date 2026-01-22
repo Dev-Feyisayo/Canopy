@@ -79,10 +79,10 @@ cmake --build build --target comprehensive_demo
 auto child_transport = std::make_shared<rpc::local::child_transport>(
     "child_zone",
     parent_service,
+    child_zone_id);
+child_transport->set_child_entry_point<InterfaceType, InterfaceType>(
     child_zone_id,
-    rpc::local::parent_transport::bind<InterfaceType, InterfaceType>(
-        child_zone_id,
-        setup_callback));
+    setup_callback);
 ```
 
 ---

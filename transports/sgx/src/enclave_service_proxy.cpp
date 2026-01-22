@@ -47,7 +47,7 @@ namespace rpc
     }
 
     CORO_TASK(int)
-    enclave_service_proxy::connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
+    enclave_service_proxy::inner_connect(rpc::interface_descriptor input_descr, rpc::interface_descriptor& output_descr)
     {
         sgx_launch_token_t token = {0};
         int updated = 0;
@@ -363,7 +363,6 @@ namespace rpc
         caller_zone caller_zone_id,
         known_direction_zone known_direction_zone_id,
         rpc::add_ref_options build_out_param_channel,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -387,8 +386,7 @@ namespace rpc
             caller_zone_id.get_val(),
             known_direction_zone_id.get_val(),
             (uint8_t)build_out_param_channel,
-            &reference_count,
-            in_bc_buf.size(),
+            &in_bc_buf.size(),
             in_bc_buf.data(),
             out_bc_buf.size(),
             out_bc_buf.data(),
@@ -406,8 +404,7 @@ namespace rpc
                         caller_zone_id.get_val(),
                         known_direction_zone_id.get_val(),
                         (uint8_t)build_out_param_channel,
-                        &reference_count,
-                        in_bc_buf.size(),
+                        &in_bc_buf.size(),
                         in_bc_buf.data(),
                         out_bc_buf.size(),
                         out_bc_buf.data(),
@@ -426,7 +423,6 @@ namespace rpc
 #endif
             RPC_ERROR("add_ref_enclave gave an enclave error {}", (int)status);
             RPC_ASSERT(false);
-            reference_count = 0;
             return rpc::error::ZONE_NOT_FOUND();
         }
         // Deserialize output back-channel
@@ -444,8 +440,7 @@ namespace rpc
                 get_caller_zone_id(),
                 object_id,
                 known_direction_zone_id,
-                build_out_param_channel,
-                reference_count);
+                build_out_param_channel);
         }
 #endif
         return err_code;
@@ -456,7 +451,6 @@ namespace rpc
         object object_id,
         caller_zone caller_zone_id,
         rpc::release_options options,
-        uint64_t& reference_count,
         const std::vector<rpc::back_channel_entry>& in_back_channel,
         std::vector<rpc::back_channel_entry>& out_back_channel)
     {
@@ -479,8 +473,7 @@ namespace rpc
             object_id.get_val(),
             caller_zone_id.get_val(),
             static_cast<char>(options),
-            &reference_count,
-            in_bc_buf.size(),
+            &in_bc_buf.size(),
             in_bc_buf.data(),
             out_bc_buf.size(),
             out_bc_buf.data(),
@@ -497,8 +490,7 @@ namespace rpc
                         object_id.get_val(),
                         caller_zone_id.get_val(),
                         static_cast<char>(options),
-                        &reference_count,
-                        in_bc_buf.size(),
+                        &in_bc_buf.size(),
                         in_bc_buf.data(),
                         out_bc_buf.size(),
                         out_bc_buf.data(),
@@ -517,7 +509,6 @@ namespace rpc
 #endif
             RPC_ERROR("release_enclave gave an enclave error {}", (int)status);
             RPC_ASSERT(false);
-            reference_count = 0;
             return rpc::error::ZONE_NOT_FOUND();
         }
         // Deserialize output back-channel

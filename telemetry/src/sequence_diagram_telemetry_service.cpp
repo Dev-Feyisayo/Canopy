@@ -289,15 +289,13 @@ namespace rpc
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = object_id;
         std::ignore = caller_zone_id;
         std::ignore = known_direction_zone_id;
-        std::ignore = reference_count;
         std::ignore = options;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
@@ -386,15 +384,13 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::object object_id,
         rpc::caller_zone caller_zone_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = object_id;
         std::ignore = caller_zone_id;
         std::ignore = options;
-        std::ignore = reference_count;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
         auto dest = destination_zone_id.as_zone();
@@ -609,15 +605,13 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = object_id;
         std::ignore = caller_zone_id;
         std::ignore = known_direction_zone_id;
-        std::ignore = reference_count;
         std::ignore = options;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
@@ -679,15 +673,13 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = object_id;
         std::ignore = caller_zone_id;
         std::ignore = options;
-        std::ignore = reference_count;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
         auto dest = destination_zone_id.as_zone();
@@ -713,12 +705,11 @@ namespace rpc
     }
 
     void sequence_diagram_telemetry_service::on_service_proxy_add_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = caller_zone_id;
-        std::ignore = ref_count;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
         std::lock_guard g(mux);
@@ -733,19 +724,7 @@ namespace rpc
         }
         else
         {
-            auto count = ++found->second.count;
-            if (ref_count != count)
-            {
-                message(level_enum::warn,
-                    fmt::format("add_external_ref count does not match zone_id {} destination_zone_id {} "
-                                "caller_zone_id {} {} - {}",
-                        zone_id.get_val(),
-                        destination_zone_id.get_val(),
-                        caller_zone_id.get_val(),
-                        ref_count,
-                        count)
-                        .c_str());
-            }
+            ++found->second.count;
         }
 
         auto entry = services.find(destination_zone_id.as_zone());
@@ -760,21 +739,19 @@ namespace rpc
             fmt::println(output_, "activate {} #Moccasin", service_alias(destination_zone_id.as_zone()));
         }
         fmt::println(output_,
-            "hnote over {} : add_external_ref {} {}",
+            "hnote over {} : add_external_ref {}",
             service_proxy_alias(zone_id, destination_zone_id, caller_zone_id),
-            get_thread_id(),
-            ref_count);
+            get_thread_id());
         fflush(output_);
 #endif
     }
 
     void sequence_diagram_telemetry_service::on_service_proxy_release_external_ref(
-        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id, int ref_count) const
+        rpc::zone zone_id, rpc::destination_zone destination_zone_id, rpc::caller_zone caller_zone_id) const
     {
         std::ignore = zone_id;
         std::ignore = destination_zone_id;
         std::ignore = caller_zone_id;
-        std::ignore = ref_count;
 
 #ifdef CANOPY_USE_TELEMETRY_RAII_LOGGING
         std::lock_guard g(mux);
@@ -787,28 +764,11 @@ namespace rpc
                 destination_zone_id.get_val(),
                 caller_zone_id.get_val());
         }
-        else
-        {
-            auto count = --found->second.count;
-            if (ref_count != count)
-            {
-                message(level_enum::warn,
-                    fmt::format("release_external_ref count does not match zone_id {} destination_zone_id {} "
-                                "caller_zone_id {} {} - {}",
-                        zone_id.get_val(),
-                        destination_zone_id.get_val(),
-                        caller_zone_id.get_val(),
-                        ref_count,
-                        count)
-                        .c_str());
-            }
-        }
 
         fmt::println(output_,
-            "hnote over {} : release_external_ref {} {}",
+            "hnote over {} : release_external_ref {}",
             service_proxy_alias(zone_id, destination_zone_id, caller_zone_id),
-            get_thread_id(),
-            ref_count);
+            get_thread_id());
         fflush(output_);
 #endif
     }
@@ -1566,20 +1526,18 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         fmt::println(output_,
             "note over zone_{}: transport_outbound_add_ref: adjacent={} dest={} caller={} obj={} "
-            "known_direction={} opts={} ref_count={}",
+            "known_direction={} opts={}",
             zone_id.get_val(),
             adjacent_zone_id.get_val(),
             destination_zone_id.get_val(),
             caller_zone_id.get_val(),
             object_id.get_val(),
             known_direction_zone_id.get_val(),
-            static_cast<int>(options),
-            reference_count);
+            static_cast<int>(options));
         fflush(output_);
     }
 
@@ -1588,18 +1546,16 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         fmt::println(output_,
-            "note over zone_{}: transport_outbound_release: adjacent={} dest={} caller={} obj={} opts={} ref_count={}",
+            "note over zone_{}: transport_outbound_release: adjacent={} dest={} caller={} obj={} opts={}",
             zone_id.get_val(),
             adjacent_zone_id.get_val(),
             destination_zone_id.get_val(),
             caller_zone_id.get_val(),
             object_id.get_val(),
-            static_cast<int>(options),
-            reference_count);
+            static_cast<int>(options));
         fflush(output_);
     }
 
@@ -1698,20 +1654,18 @@ namespace rpc
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
         rpc::known_direction_zone known_direction_zone_id,
-        rpc::add_ref_options options,
-        uint64_t reference_count) const
+        rpc::add_ref_options options) const
     {
         fmt::println(output_,
             "note over zone_{}: transport_inbound_add_ref: adjacent={} dest={} caller={} obj={} "
-            "known_direction={} opts={} ref_count={}",
+            "known_direction={} opts={}",
             zone_id.get_val(),
             adjacent_zone_id.get_val(),
             destination_zone_id.get_val(),
             caller_zone_id.get_val(),
             object_id.get_val(),
             known_direction_zone_id.get_val(),
-            static_cast<int>(options),
-            reference_count);
+            static_cast<int>(options));
         fflush(output_);
     }
 
@@ -1720,18 +1674,16 @@ namespace rpc
         rpc::destination_zone destination_zone_id,
         rpc::caller_zone caller_zone_id,
         rpc::object object_id,
-        rpc::release_options options,
-        uint64_t reference_count) const
+        rpc::release_options options) const
     {
         fmt::println(output_,
-            "note over zone_{}: transport_inbound_release: adjacent={} dest={} caller={} obj={} opts={} ref_count={}",
+            "note over zone_{}: transport_inbound_release: adjacent={} dest={} caller={} obj={} opts={}",
             zone_id.get_val(),
             adjacent_zone_id.get_val(),
             destination_zone_id.get_val(),
             caller_zone_id.get_val(),
             object_id.get_val(),
-            static_cast<int>(options),
-            reference_count);
+            static_cast<int>(options));
         fflush(output_);
     }
 

@@ -184,8 +184,7 @@ extern "C"
         uint64_t object_id,
         uint64_t caller_zone_id,
         uint64_t known_direction_zone_id,
-        char build_out_param_channel,
-        uint64_t* reference_count)
+        char build_out_param_channel)
     {
         auto root_service = current_host_service.lock();
         if (!root_service)
@@ -201,7 +200,6 @@ extern "C"
             {caller_zone_id},
             {known_direction_zone_id}, // known_direction_zone - using 0 for unknown
             static_cast<rpc::add_ref_options>(build_out_param_channel),
-            *reference_count,
             in_back_channel,
             out_back_channel);
     }
@@ -212,8 +210,7 @@ extern "C"
         uint64_t zone_id,
         uint64_t object_id,
         uint64_t caller_zone_id,
-        char options,
-        uint64_t* reference_count)
+        char options)
     {
         auto root_service = current_host_service.lock();
         if (!root_service)
@@ -228,7 +225,6 @@ extern "C"
             {object_id},
             {caller_zone_id},
             static_cast<rpc::release_options>(options),
-            *reference_count,
             in_back_channel,
             out_back_channel);
     }

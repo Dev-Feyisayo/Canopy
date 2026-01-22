@@ -462,21 +462,18 @@ namespace marshalled_tests
             auto this_service = this_service_.lock();
             rpc::zone new_zone{new_zone_id};
 
-            auto child_transport = std::make_shared<rpc::local::child_transport>("example_zone",
-                this_service,
-                new_zone,
-                rpc::local::parent_transport::bind<yyy::i_host, yyy::i_example>(new_zone,
-                    [](const rpc::shared_ptr<yyy::i_host>& host,
-                        rpc::shared_ptr<yyy::i_example>& new_example,
-                        const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(error_code)
-                    {
-                        example_import_idl_register_stubs(child_service_ptr);
-                        example_shared_idl_register_stubs(child_service_ptr);
-                        example_idl_register_stubs(child_service_ptr);
-                        new_example
-                            = rpc::shared_ptr<yyy::i_example>(new marshalled_tests::example(child_service_ptr, host));
-                        CO_RETURN rpc::error::OK();
-                    }));
+            auto child_transport = std::make_shared<rpc::local::child_transport>("example_zone", this_service, new_zone);
+            child_transport->set_child_entry_point<yyy::i_host, yyy::i_example>(
+                [](const rpc::shared_ptr<yyy::i_host>& host,
+                    rpc::shared_ptr<yyy::i_example>& new_example,
+                    const std::shared_ptr<rpc::child_service>& child_service_ptr) -> CORO_TASK(error_code)
+                {
+                    example_import_idl_register_stubs(child_service_ptr);
+                    example_shared_idl_register_stubs(child_service_ptr);
+                    example_idl_register_stubs(child_service_ptr);
+                    new_example = rpc::shared_ptr<yyy::i_example>(new marshalled_tests::example(child_service_ptr, host));
+                    CO_RETURN rpc::error::OK();
+                });
 
             auto err_code = CO_AWAIT this_service->connect_to_zone("example_zone", child_transport, host_ptr, target);
             if (err_code != rpc::error::OK())
