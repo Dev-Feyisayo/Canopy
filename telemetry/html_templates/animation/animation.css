@@ -255,6 +255,18 @@ svg {
     animation: activity-pulse 1s linear infinite;
 }
 
+.activity-line.transport {
+    stroke: #fbbf24;
+}
+
+.activity-line.service_proxy {
+    stroke: #60a5fa;
+}
+
+.activity-line.passthrough {
+    stroke: #f472b6;
+}
+
 @keyframes activity-pulse {
     0% { stroke-dashoffset: 0; }
     100% { stroke-dashoffset: -28; }

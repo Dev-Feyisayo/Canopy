@@ -1130,6 +1130,11 @@ function initAnimationTelemetry() {
         if (!nodes.has(id)) {
             return;
         }
+        const options = Number(evt.data.options) || 0;
+        if (evt.type === 'service_proxy_add_ref' && options === 3) {
+            pulseRelayActivity(evt, zoneNumber, destinationZoneNumber, 'service_proxy');
+            return;
+        }
         const node = nodes.get(id);
         if (evt.type === 'service_proxy_add_ref') {
             node.refCount = (node.refCount || 0) + 1;
@@ -1292,6 +1297,10 @@ function initAnimationTelemetry() {
         const bucket = entry[direction];
         const isAdd = evt.type.includes('add_ref');
         const options = Number(evt.data.options) || 0;
+        if (isAdd && options === 3) {
+            pulseRelayActivity(evt, zoneNumber, adjacentNumber, 'transport');
+            return;
+        }
         const optimisticFlag = isAdd
             ? ((options & ADD_REF_OPTIMISTIC) !== 0)
             : ((options & RELEASE_OPTIMISTIC) !== 0);
@@ -1777,8 +1786,15 @@ function initAnimationTelemetry() {
         if (!nodes.has(id)) {
             return;
         }
+        const forwardDestNumber = normalizeZoneNumber(evt.data.forward_destination);
+        const reverseDestNumber = normalizeZoneNumber(evt.data.reverse_destination);
         const node = nodes.get(id);
         if (evt.type === 'pass_through_add_ref') {
+            const options = Number(evt.data.options) || 0;
+            if (options === 3) {
+                pulseRelayActivity(evt, forwardDestNumber, reverseDestNumber, 'passthrough');
+                return;
+            }
             node.sharedCount = (node.sharedCount || 0) + (evt.data.shared_delta || 0);
             node.optimisticCount = (node.optimisticCount || 0) + (evt.data.optimistic_delta || 0);
         } else if (evt.type === 'pass_through_release') {
@@ -1982,6 +1998,31 @@ function initAnimationTelemetry() {
             updateGraph();
         }
 
+        appendLog(evt);
+    }
+
+    function pulseRelayActivity(evt, sourceZone, targetZone, variant) {
+        if (!sourceZone || !targetZone || sourceZone === targetZone) {
+            appendLog(evt);
+            return;
+        }
+        const relayId = `relay-${variant}-${evt.type}-${evt.timestamp}-${Math.random()}`;
+        const relayLink = {
+            id: relayId,
+            type: 'relay_activity',
+            source: `zone-${sourceZone}`,
+            target: `zone-${targetZone}`,
+            variant: variant,
+            label: evt.type.replace(/_/g, ' '),
+            timestamp: evt.timestamp,
+            temporary: true
+        };
+        links.set(relayId, relayLink);
+        setTimeout(() => {
+            links.delete(relayId);
+            updateGraph();
+        }, 2000);
+        updateGraph();
         appendLog(evt);
     }
 
@@ -2475,7 +2516,7 @@ function initAnimationTelemetry() {
         const showActivity = typeVisibility.get('activity');
         if (showActivity) {
             const activityLinks = Array.from(links.values())
-                .filter((link) => link.type === 'activity')
+                .filter((link) => link.type === 'activity' || link.type === 'relay_activity')
                 .map((link) => {
                     const sourceZone = getZoneNumberFromEndpoint(link.source);
                     const targetZone = getZoneNumberFromEndpoint(link.target);
@@ -2487,12 +2528,16 @@ function initAnimationTelemetry() {
                     if (!sourcePos || !targetPos) {
                         return null;
                     }
+                    const variant = link.type === 'relay_activity'
+                        ? (link.variant || 'relay')
+                        : 'default';
                     return {
                         id: link.id,
                         x1: sourcePos.x,
                         y1: sourcePos.y,
                         x2: targetPos.x,
-                        y2: targetPos.y
+                        y2: targetPos.y,
+                        variant: variant
                     };
                 })
                 .filter(Boolean);
@@ -2501,7 +2546,7 @@ function initAnimationTelemetry() {
                 .data(activityLinks, (d) => d.id)
                 .enter()
                 .append('line')
-                .attr('class', 'activity-line')
+                .attr('class', (d) => `activity-line ${d.variant}`)
                 .attr('x1', (d) => d.x1)
                 .attr('y1', (d) => d.y1)
                 .attr('x2', (d) => d.x2)
