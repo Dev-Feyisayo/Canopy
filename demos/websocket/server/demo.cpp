@@ -21,22 +21,22 @@ namespace websocket_demo
             return nullptr;
         }
 
-        CORO_TASK(int) add(double first_val, double second_val, double& response)
+        CORO_TASK(int) add(double first_val, double second_val, double& response) override
         {
             response = first_val + second_val;
             CO_RETURN rpc::error::OK();
         }
-        CORO_TASK(int) subtract(double first_val, double second_val, double& response)
+        CORO_TASK(int) subtract(double first_val, double second_val, double& response) override
         {
             response = first_val - second_val;
             CO_RETURN rpc::error::OK();
         }
-        CORO_TASK(int) multiply(double first_val, double second_val, double& response)
+        CORO_TASK(int) multiply(double first_val, double second_val, double& response) override
         {
             response = first_val * second_val;
             CO_RETURN rpc::error::OK();
         }
-        CORO_TASK(int) divide(double first_val, double second_val, double& response)
+        CORO_TASK(int) divide(double first_val, double second_val, double& response) override
         {
             response = first_val / second_val;
             CO_RETURN rpc::error::OK();
