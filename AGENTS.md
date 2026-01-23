@@ -168,7 +168,7 @@ See `documents/transports/hierarchical.md` for comprehensive details.
 - `rpc::service_proxy` - Service communication proxy
 - `rpc::object_proxy` - Object reference proxy
 - `rpc::child_service` - Child zone service management (hierarchical transports only: local, SGX, DLL)
-- `rpc::pass_through` - For linking two zones via a third
+- `rpc::pass_through` - Routes communication between non-adjacent zones through intermediary (see `documents/architecture/passthroughs.md`)
 - `rpc::transport` - A base class for linking two zones together e.g. TCP and SPSC
 
 **Critical Design Rules - No Bridging Policy**:

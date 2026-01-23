@@ -115,6 +115,8 @@ class pass_through
 };
 ```
 
+**For comprehensive passthrough documentation**, including relay operations (options=3), reference counting, and routing logic, see `documents/architecture/passthroughs.md`.
+
 ## 4. Autonomous Zones
 
 ### Creating Autonomous Children
