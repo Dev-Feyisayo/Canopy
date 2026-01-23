@@ -64,3 +64,18 @@ void object_released(rpc::object object_id);
 // Called when transport fails
 void transport_down();
 ```
+
+## Hierarchical Transports (Parent/Child Zones)
+
+If implementing a hierarchical transport (like local, SGX, or DLL) that creates parent/child zone relationships:
+
+1. **Use the standard pattern**: See `documents/transports/hierarchical.md`
+2. **Implement circular dependency**: `parent_transport` and `child_transport` reference each other
+3. **Stack-based protection**: Use `auto child = child_.get_nullable()` before boundary crossing
+4. **Safe disconnection**: Override `set_status()` and implement `on_child_disconnected()`
+5. **Thread safety**: Use `stdex::member_ptr` for cross-zone references
+
+Examples:
+- **Local**: `transports/local/` - In-process parent/child
+- **SGX**: Enclave transport - Host/enclave boundary
+- **DLL**: Cross-DLL boundary (platform-specific)

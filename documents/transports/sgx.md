@@ -43,6 +43,24 @@ Secure communication between host application and Intel SGX enclaves.
 └─────────────────────────────────────────┘
 ```
 
+## Hierarchical Transport Pattern
+
+SGX enclave transport implements the standard hierarchical transport pattern used by all parent/child zone transports (local, SGX, DLL).
+
+### Key Features:
+- **Circular dependency by design**: Host and enclave zones keep each other alive
+- **Stack-based lifetime protection**: Prevents use-after-free during ECALL/OCALL
+- **Safe disconnection protocol**: Coordinated cleanup across enclave boundary
+- **Thread-safe with `stdex::member_ptr`**: Protects concurrent ECALL/OCALL
+
+### SGX-Specific Behavior:
+- `child_transport` in host zone calls into enclave via ECALL
+- `parent_transport` in enclave zone calls back to host via OCALL
+- Stack-based `shared_ptr` protects transport during boundary crossing
+- Serialization/deserialization happens automatically for boundary crossing
+
+**See `documents/transports/hierarchical.md` for complete architecture details and safety properties.**
+
 ## Host Setup
 
 ```cpp

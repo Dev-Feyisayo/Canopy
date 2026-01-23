@@ -115,6 +115,50 @@ CANOPY_STANDALONE=ON              # Standalone build mode
 6. **Zone Lifecycle Management**: Zones kept alive through `shared_ptr` to objects, not service storage
 7. **Hidden Service Principle**: Each object only interacts with current service via `get_current_service()`
 
+### Hierarchical Transport Circular Dependency Pattern
+
+All hierarchical transports (local, SGX enclave, DLL) implement an intentional circular dependency for zone lifetime management.
+
+**Applicable to:**
+- Local transport (in-process parent/child zones)
+- SGX enclave transport (host/enclave communication)
+- DLL transport (cross-DLL boundary communication)
+
+**Design Pattern:**
+```
+Parent Zone: child_transport → stdex::member_ptr<parent_transport> (to child zone)
+Child Zone:  parent_transport → stdex::member_ptr<child_transport> (to parent zone)
+```
+
+**Stack-Based Lifetime Protection:**
+When calls cross zone boundaries, stack-based `shared_ptr` protects transport lifetime:
+
+```cpp
+// In child_transport (parent zone), calling into child zone:
+CORO_TASK(int) child_transport::outbound_send(...) {
+    auto child = child_.get_nullable();  // Stack-based shared_ptr<parent_transport>
+    if (!child) CO_RETURN rpc::error::ZONE_NOT_FOUND();
+
+    // child shared_ptr keeps parent_transport alive during entire call
+    CO_RETURN CO_AWAIT child->inbound_send(...);
+}
+```
+
+**Safe Disconnection Protocol:**
+1. `child_service` destructor calls `parent_transport->set_status(DISCONNECTED)`
+2. `parent_transport::set_status()` override propagates to parent zone
+3. `child_transport::on_child_disconnected()` breaks its circular reference
+4. Both transports break their references, circular dependency resolved
+5. Stack-based protection ensures no use-after-free during active calls
+
+**Critical Safety Properties:**
+- Zone boundaries respected: child_service only touches its own transport
+- Status propagation handles cross-zone coordination
+- Stack protection prevents destruction during active calls
+- Natural cleanup when call stack unwinds
+
+See `documents/transports/hierarchical.md` for comprehensive details.
+
 ### Smart Pointer Architecture
 - `rpc::shared_ptr is` - used for remote RAII
 - `rpc::optimistic_ptr` - used for remote interfaces not managed by RAII
@@ -123,7 +167,7 @@ CANOPY_STANDALONE=ON              # Standalone build mode
 - `rpc::service` - Main service management class
 - `rpc::service_proxy` - Service communication proxy
 - `rpc::object_proxy` - Object reference proxy
-- `rpc::child_service` - Child zone service management
+- `rpc::child_service` - Child zone service management (hierarchical transports only: local, SGX, DLL)
 - `rpc::pass_through` - For linking two zones via a third
 - `rpc::transport` - A base class for linking two zones together e.g. TCP and SPSC
 

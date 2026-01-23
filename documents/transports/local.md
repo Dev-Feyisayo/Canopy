@@ -62,6 +62,38 @@ auto ret = CO_AWAIT root_service_->connect_to_zone(
 
 - **No handshake**: Status is immediately `CONNECTED`
 - **Direct function calls**: Messages pass through inbound handlers
-- **Hierarchical zones**: Supports `child_service` creation
+- **Hierarchical transport**: Implements parent/child zone pattern
 - **Bidirectional**: parent_transport and child_transport reference each other
+- **Zero serialization**: In-process function calls, no marshalling overhead
+
+## Hierarchical Transport Pattern
+
+Local transport implements the standard hierarchical transport pattern used by all parent/child zone transports (local, SGX, DLL).
+
+### Key Features:
+- **Circular dependency by design**: Keeps zones alive while references exist
+- **Stack-based lifetime protection**: Prevents use-after-free during active calls
+- **Safe disconnection protocol**: Coordinated cleanup across zone boundaries
+- **Thread-safe with `stdex::member_ptr`**: Concurrent access protected by `shared_mutex`
+
+### Quick Summary:
+- `child_transport` lives in parent zone, calls into child via `child->inbound_*()`
+- `parent_transport` lives in child zone, calls into parent via `parent->inbound_*()`
+- Stack-based `shared_ptr` from `get_nullable()` protects transport during call
+- Disconnect propagates via `set_status()` override, breaking circular refs safely
+
+**See `documents/transports/hierarchical.md` for complete architecture details, safety properties, and implementation guide.**
+
+## Local-Specific Details
+
+**Performance:**
+- Direct C++ function calls
+- No serialization or deserialization
+- No context switching overhead
+- Ideal for unit tests and high-performance in-process zones
+
+**Limitations:**
+- Single process only
+- No isolation between zones
+- Shared memory space
 
