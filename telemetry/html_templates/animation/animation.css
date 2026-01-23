@@ -233,6 +233,11 @@ body {
     box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.3);
 }
 
+#event-log li.error-message {
+    background: rgba(220, 38, 38, 0.25);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.5);
+}
+
 #event-log li .timestamp {
     color: #94a3b8;
     font-variant-numeric: tabular-nums;

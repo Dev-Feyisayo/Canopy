@@ -2193,7 +2193,18 @@ function initAnimationTelemetry() {
         if (evt.type === 'interface_proxy_send') {
             li.classList.add('interface-proxy-send');
         }
-        li.innerHTML = `<div class="timestamp">${time}s · ${eventType}</div><div>${formatEventSummary(evt)}</div>`;
+        // Check for error messages
+        const eventSummary = formatEventSummary(evt);
+        if (evt.type === 'transport_ref_audit' && evt.data && evt.data.message) {
+            const msg = evt.data.message.toLowerCase();
+            if (msg.includes('still alive with zero ref counts') ||
+                msg.includes('went negative') ||
+                msg.includes('negative') ||
+                msg.includes('error')) {
+                li.classList.add('error-message');
+            }
+        }
+        li.innerHTML = `<div class="timestamp">${time}s · ${eventType}</div><div>${eventSummary}</div>`;
         eventLog.appendChild(li);
         while (eventLog.childNodes.length > maxLogEntries) {
             eventLog.removeChild(eventLog.firstChild);

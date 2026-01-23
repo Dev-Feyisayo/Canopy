@@ -43,6 +43,8 @@ namespace rpc
         std::atomic<pass_through_status> status_{pass_through_status::CONNECTED};
         std::atomic<uint64_t> function_count_{0}; // Track active function calls
 
+        rpc::zone zone_id_;
+
         pass_through(std::shared_ptr<transport> forward,
             std::shared_ptr<transport> reverse,
             std::shared_ptr<service> service,
