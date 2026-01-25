@@ -104,5 +104,7 @@
     "cmake-format.args": [
         "--config-files",
         "${workspaceFolder}/.cmake-format.yaml"
-    ]
+    ],
+    "protobuf.clangFormat.enabled": true,
+    "protobuf.clangFormat.path": "/usr/bin/clang-format"
 }

@@ -1282,6 +1282,13 @@ function initAnimationTelemetry() {
             appendLog(evt);
             return;
         }
+
+        const isAdd = evt.type.includes('add_ref');
+        const options = Number(evt.data.options) || 0;
+        if (isAdd && options === 3) {
+            pulseRelayActivity(evt, zoneNumber, adjacentNumber, 'transport');
+            return;
+        }
         const state = ensureTransportState(zoneNumber, adjacentNumber);
         const pairKey = `${destinationNumber}->${callerNumber}`;
         if (!state.pairs.has(pairKey)) {
@@ -1295,12 +1302,6 @@ function initAnimationTelemetry() {
         const entry = state.pairs.get(pairKey);
         const direction = evt.type.includes('outbound') ? 'outbound' : 'inbound';
         const bucket = entry[direction];
-        const isAdd = evt.type.includes('add_ref');
-        const options = Number(evt.data.options) || 0;
-        if (isAdd && options === 3) {
-            pulseRelayActivity(evt, zoneNumber, adjacentNumber, 'transport');
-            return;
-        }
         const optimisticFlag = isAdd
             ? ((options & ADD_REF_OPTIMISTIC) !== 0)
             : ((options & RELEASE_OPTIMISTIC) !== 0);

@@ -432,7 +432,7 @@ namespace rpc
             yas::binary_iarchive<yas::mem_istream, yas::binary | yas::no_header> ia(is);
             ia & out_back_channel;
         }
-#ifdef CANOPY_USE_TELEMETRY
+#if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
         {
             telemetry_service->on_service_proxy_add_ref(get_zone_id(),

@@ -71,7 +71,7 @@ namespace outer
 {
     namespace inner
     {
-        interface i_service
+        interface i_foo
         {
             error_code method();
         };
@@ -117,7 +117,7 @@ namespace comprehensive
 {
     [inline] namespace v1
     {
-        interface i_service { ... };
+        interface i_foo { ... };
     }
 }
 
@@ -126,7 +126,7 @@ namespace comprehensive
 {
     [inline] namespace v2
     {
-        interface i_service : v1::i_service
+        interface i_foo : v1::i_foo
         {
             error_code new_feature();
         };
@@ -140,7 +140,7 @@ namespace comprehensive
 [status=production]  // development, production, deprecated
 namespace stable
 {
-    interface i_service { };
+    interface i_foo { };
 };
 ```
 
@@ -423,7 +423,7 @@ error_code get_value([out] int& value);
 error_code get_values([out] std::vector<int>& values);
 
 // Use rpc::shared_ptr for interface references
-error_code get_service([out] rpc::shared_ptr<i_service>& service);
+error_code get_service([out] rpc::shared_ptr<i_foo>& service);
 ```
 
 **Exception**: Pointer types may be useful only when both objects share the same memory address space (e.g., shared memory regions between processes).
@@ -452,13 +452,13 @@ Node the [by_value] attribute is now deprecated, and this feature will be remove
 
 ```idl
 // Valid - shared_ptr only in
-error_code set_app([in] const rpc::shared_ptr<i_service> app);
+error_code set_app([in] const rpc::shared_ptr<i_foo> app);
 
 // Valid - shared_ptr only out
-error_code get_app([out] rpc::shared_ptr<i_service>& app);
+error_code get_app([out] rpc::shared_ptr<i_foo>& app);
 
 // Invalid - shared_ptr cannot be [in, out]
-// error_code transfer_app([in, out] rpc::shared_ptr<i_service>& app);  // ERROR!
+// error_code transfer_app([in, out] rpc::shared_ptr<i_foo>& app);  // ERROR!
 ```
 
 ### Data Transfer Patterns
@@ -511,7 +511,7 @@ Attributes provide metadata for interfaces, methods, and structs.
 ```idl
 [status=production]                    // development, production, deprecated
 [description="Service description"]
-interface i_service
+interface i_foo
 {
     // ...
 };
@@ -825,6 +825,6 @@ interface i_calculator
 
 ## 15. Next Steps
 
-- [Transports](04-transports.md) - Learn about communication channels
-- [Getting Started](06-getting-started.md) - Follow a tutorial
-- [API Reference](12-api-reference.md) - Complete API documentation
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Learn about communication channels
+- [Getting Started](02-getting-started.md) - Follow a tutorial
+- [API Reference](09-api-reference.md) - Complete API documentation

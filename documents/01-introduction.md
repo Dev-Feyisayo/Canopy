@@ -148,7 +148,7 @@ telemetry/                    # Telemetry services
 
 ## Next Steps
 
-1. [Core Concepts](02-core-concepts.md) - Understand the fundamental building blocks
+1. [Architecture Overview](architecture/01-overview.md) - Understand the fundamental building blocks
 2. [IDL Guide](03-idl-guide.md) - Learn to define interfaces
-3. [Getting Started](06-getting-started.md) - Follow a tutorial
-4. [Building Canopy](05-building.md) - Set up your build environment
+3. [Getting Started](02-getting-started.md) - Follow a tutorial
+4. [Building Canopy](04-building.md) - Set up your build environment

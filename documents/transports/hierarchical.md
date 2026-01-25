@@ -171,19 +171,19 @@ auto child_transport = std::make_shared<rpc::local::child_transport>(
     parent_service,
     rpc::zone{new_zone_id});
 
-child_transport->set_child_entry_point<i_input, i_output>(
-    [](const rpc::shared_ptr<i_input>& input,
-       rpc::shared_ptr<i_output>& output,
+child_transport->set_child_entry_point<i_example_parent, i_example_child>(
+    [](const rpc::shared_ptr<i_example_parent>& parent_interface,
+       rpc::shared_ptr<i_example_child>& child_interface,
        const std::shared_ptr<rpc::child_service>& child_service) -> CORO_TASK(int) {
         // Initialize child zone
-        output = rpc::make_shared<output_impl>(child_service, input);
+        child_interface = rpc::make_shared<example_child_impl>(child_service, parent_interface);
         CO_RETURN rpc::error::OK();
     });
 
-rpc::shared_ptr<i_input> input_ptr;
-rpc::shared_ptr<i_output> output_ptr;
+rpc::shared_ptr<i_example_parent> parent_ptr;
+rpc::shared_ptr<i_example_child> child_ptr;
 auto ret = CO_AWAIT parent_service->connect_to_zone(
-    "child_name", child_transport, input_ptr, output_ptr);
+    "child_name", child_transport, parent_ptr, child_ptr);
 ```
 
 ### Destroying a Child Zone

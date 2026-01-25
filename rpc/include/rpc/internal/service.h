@@ -516,7 +516,7 @@ namespace rpc
             rpc::shared_ptr<PARENT_INTERFACE> parent_ptr;
             if (input_descr != interface_descriptor())
             {
-#ifdef CANOPY_USE_TELEMETRY
+#if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
                 if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
                     telemetry_service->on_transport_inbound_add_ref(zone_id,
                         adjacent_zone_id,
@@ -547,19 +547,23 @@ namespace rpc
                 RPC_ASSERT(
                     child_ptr->is_local()
                     && "we cannot support remote pointers to subordinate zones as it has not been registered yet");
-                CO_RETURN CO_AWAIT rpc::create_interface_stub(
+                auto err_code = CO_AWAIT rpc::create_interface_stub(
                     *child_svc, child_ptr, parent_transport->get_adjacent_zone_id().as_caller(), output_descr);
 
-#ifdef CANOPY_USE_TELEMETRY
-                if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
-                    telemetry_service->on_transport_outbound_add_ref(zone_id,
-                        adjacent_zone_id,
-                        adjacent_zone_id.as_destination(),
-                        zone_id.as_caller(),
-                        output_descr.object_id,
-                        zone_id,
-                        rpc::add_ref_options::normal);
+                if (err_code == rpc::error::OK())
+                {
+#if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
+                    if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
+                        telemetry_service->on_transport_outbound_add_ref(zone_id,
+                            adjacent_zone_id,
+                            zone_id.as_destination(),
+                            adjacent_zone_id.as_caller(),
+                            output_descr.object_id,
+                            zone_id,
+                            rpc::add_ref_options::build_caller_route);
 #endif
+                }
+                CO_RETURN err_code;
             }
             CO_RETURN rpc::error::OK();
         };

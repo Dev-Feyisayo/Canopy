@@ -631,5 +631,5 @@ Understanding these core concepts is essential for effective Canopy usage:
 ## Next Steps
 
 - [IDL Guide](03-idl-guide.md) - Learn to define interfaces
-- [Transports](04-transports.md) - Understand communication channels
-- [Getting Started](06-getting-started.md) - Follow a tutorial
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Understand communication channels
+- [Getting Started](02-getting-started.md) - Follow a tutorial

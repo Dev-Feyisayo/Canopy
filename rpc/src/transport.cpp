@@ -69,7 +69,7 @@ namespace rpc
 
     CORO_TASK(int) transport::connect(interface_descriptor input_descr, interface_descriptor& output_descr)
     {
-#ifdef CANOPY_USE_TELEMETRY
+#if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (input_descr.object_id.is_set())
         {
             if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
@@ -84,7 +84,7 @@ namespace rpc
 #endif
         int ret = CO_AWAIT inner_connect(input_descr, output_descr);
 
-#ifdef CANOPY_USE_TELEMETRY
+#if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (output_descr.object_id.is_set())
         {
             if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)

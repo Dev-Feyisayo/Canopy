@@ -504,7 +504,7 @@ target_include_directories(my_demo PRIVATE
 
 ## 13. Next Steps
 
-- [Getting Started](06-getting-started.md) - Follow a tutorial
-- [Transports](04-transports.md) - Choose the right transport
+- [Getting Started](02-getting-started.md) - Follow a tutorial
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Choose the right transport
 - [IDL Guide](03-idl-guide.md) - Define your interfaces
-- [Examples](14-examples.md) - Explore demo code
+- [Examples](10-examples.md) - Explore demo code

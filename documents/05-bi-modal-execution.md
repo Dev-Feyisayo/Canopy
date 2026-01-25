@@ -294,5 +294,5 @@ CORO_TASK(error_code) chained_operations()
 
 - [YAS Serializer](serializers/yas-serializer.md) - Learn about encoding formats
 - [Protocol Buffers](serializers/protocol-buffers.md) - Cross-language serialization
-- [Error Handling](08-error-handling.md) - Understand error propagation
-- [Telemetry](09-telemetry.md) - Debug coroutine execution
+- [Error Handling](06-error-handling.md) - Understand error propagation
+- [Telemetry](07-telemetry.md) - Debug coroutine execution

@@ -507,7 +507,7 @@ auto result = CO_AWAIT opt_db->query("SELECT * FROM users");
 
 ## 10. Next Steps
 
-- [Bi-Modal Execution](07-bi-modal-execution.md) - Deep dive into execution modes
-- [Transports](04-transports.md) - Explore TCP, SPSC, and SGX transports
-- [Examples](14-examples.md) - More code examples
-- [API Reference](12-api-reference.md) - Complete API documentation
+- [Bi-Modal Execution](05-bi-modal-execution.md) - Deep dive into execution modes
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Explore TCP, SPSC, and SGX transports
+- [Examples](10-examples.md) - More code examples
+- [API Reference](09-api-reference.md) - Complete API documentation

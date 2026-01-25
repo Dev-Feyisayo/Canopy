@@ -115,7 +115,7 @@ class pass_through
 };
 ```
 
-**For comprehensive passthrough documentation**, including relay operations (options=3), reference counting, and routing logic, see `documents/architecture/passthroughs.md`.
+**For comprehensive passthrough documentation**, including relay operations (options=3), reference counting, and routing logic, see [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md).
 
 ## 4. Autonomous Zones
 
@@ -367,6 +367,6 @@ class zone_factory : public i_zone_factory
 
 ## 11. Next Steps
 
-- [Examples](14-examples.md) - Working examples
-- [API Reference](12-api-reference.md) - Service and transport APIs
-- [Memory Management](10-memory-management.md) - Reference counting across zones
+- [Examples](10-examples.md) - Working examples
+- [API Reference](09-api-reference.md) - Service and transport APIs
+- [Memory Management](architecture/04-memory-management.md) - Reference counting across zones

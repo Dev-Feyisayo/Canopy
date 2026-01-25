@@ -303,6 +303,6 @@ protected:
 
 ## 12. Next Steps
 
-- [Memory Management](10-memory-management.md) - Understanding lifecycle
-- [Zone Hierarchies](11-zone-hierarchies.md) - Complex topologies
-- [Examples](14-examples.md) - Working code with telemetry
+- [Memory Management](architecture/04-memory-management.md) - Understanding lifecycle
+- [Zone Hierarchies](architecture/07-zone-hierarchies.md) - Complex topologies
+- [Examples](10-examples.md) - Working code with telemetry

@@ -39,9 +39,44 @@ Canopy is a Remote Procedure Call library for modern C++ that enables type-safe 
   - `SGX.cmake` - SGX enclave support (included when CANOPY_BUILD_ENCLAVE=ON)
   - `CanopyGenerate.cmake` - IDL code generation macros
   - `FindSGX.cmake` - SGX SDK finder module
-- **`/documents/`** - Documentation
+- **`/documents/`** - Documentation (see Documentation Structure below)
 - **`/build/`** - Build output (disposable per preset)
   - `build/generated` - IDL outputs and proxies
+
+## Documentation Structure
+
+Canopy documentation is organized into two main categories:
+
+### Developer Guide (Main Documents 01-12)
+Tutorial and practical usage documentation for developing with Canopy:
+- **01-introduction.md** - Project overview and features
+- **02-getting-started.md** - Step-by-step tutorials
+- **03-idl-guide.md** - Interface definition language
+- **04-building.md** - Build system and configuration
+- **05-bi-modal-execution.md** - Blocking and coroutine modes
+- **06-error-handling.md** - Error patterns and recovery
+- **07-telemetry.md** - Debugging and visualization
+- **08-coroutine-libraries.md** - Async library integration
+- **09-api-reference.md** - API documentation
+- **10-examples.md** - Working code examples
+- **11-best-practices.md** - Design patterns and recommendations
+- **12-migration-guide.md** - Upgrading between versions
+
+### Architecture (Deep-Dive Documentation)
+Internal architecture and design documentation for understanding how Canopy works:
+- **architecture/01-overview.md** - Complete architecture overview
+- **architecture/02-zones.md** - Execution context boundaries
+- **architecture/03-services.md** - Object lifecycle management
+- **architecture/04-memory-management.md** - Smart pointers and reference counting
+- **architecture/05-proxies-and-stubs.md** - RPC marshalling machinery
+- **architecture/06-transports-and-passthroughs.md** - Communication plumbing
+- **architecture/07-zone-hierarchies.md** - Multi-level zone topologies
+
+### Implementation-Specific Documentation
+Detailed documentation for specific implementations:
+- **transports/** - Transport implementations (local, TCP, SPSC, SGX, hierarchical, custom)
+- **serializers/** - Serialization formats (YAS, Protocol Buffers)
+- **coroutine-libraries/** - Coroutine library integrations (libcoro, asio, cppcoro, libunifex)
 
 ### Key Files
 - **`CMakeLists.txt`** - Main build configuration (version 2.2.0)
@@ -157,21 +192,35 @@ CORO_TASK(int) child_transport::outbound_send(...) {
 - Stack protection prevents destruction during active calls
 - Natural cleanup when call stack unwinds
 
-See `documents/transports/hierarchical.md` for comprehensive details.
+See `documents/transports/hierarchical.md` and `documents/architecture/07-zone-hierarchies.md` for comprehensive details.
 
 ### Smart Pointer Architecture
-- `rpc::shared_ptr is` - used for remote RAII
+- `rpc::shared_ptr` - used for remote RAII
 - `rpc::optimistic_ptr` - used for remote interfaces not managed by RAII
 
 **Core Components** (using `std::shared_ptr`):
 - `rpc::service` - Main service management class
-- `rpc::service_proxy` - Service communication proxy
+- `rpc::service_proxy` - Service communication proxy (holds strong reference to transport via `member_ptr`)
 - `rpc::object_proxy` - Object reference proxy
 - `rpc::child_service` - Child zone service management (hierarchical transports only: local, SGX, DLL)
-- `rpc::pass_through` - Routes communication between non-adjacent zones through intermediary (see `documents/architecture/passthroughs.md`)
+- `rpc::pass_through` - Routes communication between non-adjacent zones through intermediary (holds strong references to both transports and the intermediary service, see `documents/architecture/06-transports-and-passthroughs.md`)
 - `rpc::transport` - A base class for linking two zones together e.g. TCP and SPSC
 
-**Critical Design Rules - No Bridging Policy**:
+**Transport Lifetime Management**:
+As documented in `rpc/include/rpc/internal/service.h`, transports are owned by:
+- **Service proxies** - Hold strong references (`member_ptr<transport>`) to route calls
+- **Passthroughs** - Hold strong references to both transports and the intermediary service, keeping entire routing paths alive
+- **Child services** - Hold strong reference to parent transport
+- **Active stubs** - May cause transports to hold references to adjacent transports during calls
+- **Services** - Hold only weak references (registry for lookup, doesn't keep alive)
+
+**Service Lifetime Management**:
+Services are kept alive by:
+- **Local objects** (stubs) - Objects living in the zone
+- **Child services** - Hold strong reference to parent service (via parent transport)
+- **Passthroughs** - Hold strong reference to intermediary service, allowing zones to function purely as routing hubs
+
+**rpc::shared_ptr std::shared_ptr are not the same**:
 - **NEVER** cast between `rpc::shared_ptr` and `std::shared_ptr`
 - **NEVER** use raw pointer conversion between the two types
 - Use proper type-specific containers and member pointers
@@ -343,6 +392,9 @@ Tests multi-level zone hierarchies, cross-zone `rpc::shared_ptr` marshalling, `p
 - Telemetry defaults to console output
 - Enable `CANOPY_USE_TELEMETRY_RAII_LOGGING` only during investigations and scrub traces prior to upload
 - Canopy provides comprehensive telemetry services for debugging and visualization. They will harm performance.
+
+### Documentation
+- Avoid using the word Critical, when amendments are asked for.  Blend the amendments into the documentation as if they were there all the time.
 
 ### Beads Issue Tracking
 Quick commands for `bd` (beads):

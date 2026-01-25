@@ -410,6 +410,6 @@ Error: OBJECT_GONE
 
 ## 10. Next Steps
 
-- [Zone Hierarchies](11-zone-hierarchies.md) - Complex topologies
-- [Error Handling](08-error-handling.md) - Lifecycle errors
-- [API Reference](12-api-reference.md) - Smart pointer API
+- [Zone Hierarchies](architecture/07-zone-hierarchies.md) - Complex topologies
+- [Error Handling](06-error-handling.md) - Lifecycle errors
+- [API Reference](09-api-reference.md) - Smart pointer API

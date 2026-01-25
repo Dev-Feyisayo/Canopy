@@ -78,9 +78,10 @@ auto client_transport = rpc::tcp::tcp_transport::create(
     std::move(client),
     nullptr);  // No handler needed for client
 
-rpc::shared_ptr<i_service> service_proxy;
+rpc::shared_ptr<i_foo> input_interface;  // Interface to send to peer (optional)
+rpc::shared_ptr<i_foo> output_interface;  // Interface received from peer
 auto error = CO_AWAIT root_service_->connect_to_zone(
-    "client", client_transport, service_proxy);
+    "client", client_transport, input_interface, output_interface);
 ```
 
 ## TCP Transport Class

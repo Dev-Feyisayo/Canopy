@@ -327,6 +327,6 @@ if (error == rpc::error::INVALID_VERSION())
 
 ## 10. Next Steps
 
-- [Telemetry](09-telemetry.md) - Debug with comprehensive logging
-- [Memory Management](10-memory-management.md) - Understanding lifecycle
-- [API Reference](12-api-reference.md) - Complete error code list
+- [Telemetry](07-telemetry.md) - Debug with comprehensive logging
+- [Memory Management](architecture/04-memory-management.md) - Understanding lifecycle
+- [API Reference](09-api-reference.md) - Complete error code list

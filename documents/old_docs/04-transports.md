@@ -169,7 +169,7 @@ When creating a child zone, use `parent_transport::bind` to provide the entry po
 
 ## Next Steps
 
-- [Building Canopy](05-building.md) - Configure builds with different transports
-- [Getting Started](06-getting-started.md) - Tutorial with transport setup
-- [Bi-Modal Execution](07-bi-modal-execution.md) - Blocking and coroutine modes
+- [Building Canopy](04-building.md) - Configure builds with different transports
+- [Getting Started](02-getting-started.md) - Tutorial with transport setup
+- [Bi-Modal Execution](05-bi-modal-execution.md) - Blocking and coroutine modes
 - [YAS Serializer](serializers/yas-serializer.md) - Serialization formats
