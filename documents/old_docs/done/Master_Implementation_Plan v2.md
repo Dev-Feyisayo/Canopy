@@ -3956,7 +3956,7 @@ The both-or-neither guarantee has been implemented in the pass-through class:
 #### ✅ **COMPLETED IMPLEMENTATION SUMMARY**
 
 **1. Object Stub Reference Tracking**
-- **File**: `/var/home/edward/projects/rpc/rpc/include/rpc/internal/stub.h`, `stub.cpp`
+- **File**: `/rpc/include/rpc/internal/stub.h`, `stub.cpp`
 - Added `shared_references_` map to track shared references per zone (alongside existing optimistic_references_)
 - Renamed `optimistic_references_mutex_` to `references_mutex_` (protects both maps)
 - Updated `add_ref()` and `release()` to maintain per-zone counts for both shared and optimistic refs
@@ -3964,7 +3964,7 @@ The both-or-neither guarantee has been implemented in the pass-through class:
 - Added `release_all_from_zone()` - bulk releases all refs from a failed zone, returns true if stub should be deleted
 
 **2. Service transport_down Implementation**
-- **File**: `/var/home/edward/projects/rpc/rpc/src/service.cpp`
+- **File**: `/rpc/src/service.cpp`
 - Implemented full `service::transport_down()` method:
   - Collects all stubs with references from the failed zone
   - Calls `release_all_from_zone()` on each affected stub
@@ -3973,14 +3973,14 @@ The both-or-neither guarantee has been implemented in the pass-through class:
   - Critical: Releases mutex before calling `object_released` to prevent deadlock
 
 **3. Pass-through Relay Verified**
-- **File**: `/var/home/edward/projects/rpc/rpc/src/pass_through.cpp`
+- **File**: `/rpc/src/pass_through.cpp`
 - Confirmed existing implementation correctly:
   - Relays `transport_down` to target transport
   - Marks itself as `DISCONNECTED`
   - Triggers self-destruction when function count reaches zero
 
 **4. Dodgy Transport for Testing**
-- **Files**: `/var/home/edward/projects/rpc/transports/dodgy/`
+- **Files**: `/transports/dodgy/`
 - Created complete test transport based on SPSC:
   - IDL: `dodgy/dodgy.idl` with `network_failure_send` message
   - Header: `include/transports/dodgy/transport.h`
@@ -3992,7 +3992,7 @@ The both-or-neither guarantee has been implemented in the pass-through class:
   - Marks transport as `DISCONNECTED`
 
 **5. Build System Integration**
-- Added dodgy transport to `/var/home/edward/projects/rpc/transports/CMakeLists.txt`
+- Added dodgy transport to `/transports/CMakeLists.txt`
 - Generated IDL and built successfully
 
 #### How It Works
@@ -5106,7 +5106,7 @@ protobuf::v1_zzz::i_zzz_add_Request __request;
 **Verification**:
 ```bash
 # Error resolved:
-# Before: /home/edward/projects/rpc/build/generated/src/example_import/protobuf/example_import.cpp:18:35: 
+# Before: /rpc/build/generated/src/example_import/protobuf/example_import.cpp:18:35: 
 #         error: 'protobuf::zzz' has not been declared
 # After: Compiles successfully with protobuf::v1_zzz::i_zzz_add_Request
 ```
@@ -5176,7 +5176,7 @@ $protobuf_websocket (root exported by module.exports)
 **Verification**:
 ```bash
 # Test the Node.js client:
-node /home/edward/projects/rpc/demos/websocket/client/test_calculator.js
+node /rpc/demos/websocket/client/test_calculator.js
 
 # Or access browser client:
 # http://localhost:8888

@@ -704,7 +704,8 @@ namespace rpc
             }
 
             // otherwise we are going to use or create a pass-through
-            auto passthrough = dest_transport->get_destination_handler(destination_zone_id, caller_zone_id);
+            auto passthrough = dest_transport->get_destination_handler(
+                caller_zone_id.as_destination(), destination_zone_id.as_caller());
             if (passthrough)
             {
                 CO_RETURN CO_AWAIT passthrough->add_ref(protocol_version,

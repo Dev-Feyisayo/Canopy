@@ -176,7 +176,7 @@ obj.reset();      // refcount decreases, object may be deleted
 
 **MISCONCEPTION REPORT**:
 - `rpc::shared_ptr` IS NOT `std::shared_ptr` - different control blocks
-- Never mix pointer types (No Bridging Policy)
+- Never mix pointer types 
 - Keeps transport chain alive, not just the object
 - OBJECT_NOT_FOUND is serious (reference held but object destroyed)
 

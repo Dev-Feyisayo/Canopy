@@ -43,14 +43,17 @@ The IDL compiler generates:
 
 ### Transport Agnostic Design
 
-Canopy abstracts transport details behind a consistent interface:
+Canopy abstracts transport details behind a consistent interface. Multiple transports are available:
 
 | Transport | Use Case | Requirements |
 |-----------|----------|--------------|
-| Local | In-process communication | None |
-| TCP | Network communication | CANOPY_BUILD_COROUTINE=ON |
-| SPSC | High-performance IPC | CANOPY_BUILD_COROUTINE=ON |
-| SGX Enclave | Secure computation | CANOPY_BUILD_ENCLAVE=ON |
+| [Local](transports/local.md) | In-process parent/child zones | None |
+| [TCP](transports/tcp.md) | Network communication | CANOPY_BUILD_COROUTINE=ON |
+| [SPSC](transports/spsc.md) | Lock-free single producer/consumer IPC | CANOPY_BUILD_COROUTINE=ON |
+| [SGX](transports/sgx.md) | Secure enclave communication | CANOPY_BUILD_ENCLAVE=ON |
+| [Custom](transports/custom.md) | User-defined transports | Varies |
+
+For detailed transport documentation, see the [transports directory](transports/).
 
 ### Bi-Modal Execution
 
@@ -67,34 +70,9 @@ CORO_TASK(error_code) calculate(int a, int b, int& result)
 - **Blocking Mode**: `CORO_TASK(int)` resolves to `int`, `CO_AWAIT` is no-op
 - **Coroutine Mode**: `CORO_TASK(int)` becomes `coro::task<int>`, `CO_AWAIT` suspends execution
 
-## Architecture Overview
+For complete details on bi-modal execution, see [Bi-Modal Execution](05-bi-modal-execution.md).
 
-Canopy is built around three core concepts:
-
-### Zones
-
-A zone represents an execution context with its own:
-- Zone ID for identification
-- Service instance
-- Transport connections
-
-Zones can form hierarchies (parent/child relationships) for complex distributed systems.
-
-### Services
-
-A service manages the lifecycle of objects within a zone:
-- Object registration and lookup
-- Reference counting
-- Transport management
-- Zone identity
-
-### Transports
-
-Transports provide the communication channel between zones:
-- Local transport for in-process communication
-- TCP transport for network communication
-- SPSC transport for lock-free IPC
-- SGX transport for secure enclaves
+For a deep dive into Canopy's architecture (zones, services, transports, memory management), see [Architecture Overview](architecture/01-overview.md).
 
 ## When to Use Canopy
 
@@ -111,7 +89,7 @@ Canopy is ideal for:
 Canopy follows several key design principles:
 
 1. **Type Safety First**: Compile-time verification of all RPC calls
-2. **No Bridging Policy**: Never mix `rpc::shared_ptr` with `std::shared_ptr`
+2. **No Unsafe Casting**: Never mix `rpc::shared_ptr` with `std::shared_ptr`
 3. **RAII Throughout**: Resource management via constructors/destructors
 4. **Coroutines First**: API designed for async/await patterns
 5. **Transparent Marshalling**: Parameters pass like local objects
@@ -148,7 +126,13 @@ telemetry/                    # Telemetry services
 
 ## Next Steps
 
-1. [Architecture Overview](architecture/01-overview.md) - Understand the fundamental building blocks
+1. [Getting Started](02-getting-started.md) - Follow a tutorial
 2. [IDL Guide](03-idl-guide.md) - Learn to define interfaces
-3. [Getting Started](02-getting-started.md) - Follow a tutorial
-4. [Building Canopy](04-building.md) - Set up your build environment
+3. [Building Canopy](04-building.md) - Set up your build environment
+4. [Bi-Modal Execution](05-bi-modal-execution.md) - Understand blocking vs coroutine modes
+5. [Error Handling](06-error-handling.md) - Handle errors in RPC calls
+
+**Advanced Reading:**
+- [Architecture Overview](architecture/01-overview.md) - Internal plumbing and advanced features
+- [Zone Hierarchies](architecture/07-zone-hierarchies.md) - Multi-level zone topologies
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Communication layer details

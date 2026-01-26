@@ -13,7 +13,7 @@
  *   - RAII semantics: Object dies when last shared_ptr is released
  *   - Keeps remote object AND transport chain alive
  *   - Returns OBJECT_NOT_FOUND if object is destroyed while reference held
- *   - Never mix with std::shared_ptr (No Bridging Policy)
+ *   - Never mix with std::shared_ptr
  *
  *   MISCONCEPTION REPORT:
  *   ---------------------

@@ -38,7 +38,7 @@
             "sourceFileMap": {
                 // Map the path the debugger/compiler sees (inside /var/home)
                 // to the path VS Code is using (via the /home symlink)
-                // "/var/home/edward/projects/rpc": "/home/edward/projects/rpc"
+                // "/var/rpc": "/rpc"
                 // A more generic fix might be:
                 "/var/home/": "/home/"
             }

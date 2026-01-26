@@ -169,7 +169,7 @@ class calculator_impl : public i_calculator
 1. **No stub/proxy separation** in user code (handled by generator)
 2. **Error handling via return values** not exceptions
 3. **Zone concept** for distributed execution contexts
-4. **No bridging policy** - don't mix pointer types
+4. **dont cast std::shared_ptr with rpc::shared_ptr** - don't mix pointer types
 
 ### From Thrift
 

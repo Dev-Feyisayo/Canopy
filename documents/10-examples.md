@@ -7,109 +7,11 @@ All rights reserved.
 
 Working examples demonstrating Canopy features and patterns.
 
-## 1. Basic Calculator
+## Getting Started
 
-### IDL (idl/calculator.idl)
+For basic calculator examples covering IDL definition, implementation, and simple usage, see [Getting Started](02-getting-started.md). The examples below focus on advanced patterns and cross-zone communication scenarios.
 
-```idl
-namespace calculator
-{
-    [inline] namespace v1
-    {
-        interface i_calculator
-        {
-            error_code add(int a, int b, [out] int& result);
-            error_code subtract(int a, int b, [out] int& result);
-            error_code multiply(int a, int b, [out] int& result);
-            error_code divide(int a, int b, [out] int& result);
-        };
-    }
-}
-```
-
-### Implementation (calculator_impl.h)
-
-```cpp
-#pragma once
-
-#include <calculator/calculator.h>
-
-namespace calculator
-{
-
-class calculator_impl : public v1::i_calculator
-{
-public:
-    void* get_address() const override
-    {
-        return const_cast<calculator_impl*>(this);
-    }
-
-    const rpc::casting_interface* query_interface(
-        rpc::interface_ordinal interface_id) const override
-    {
-        if (rpc::match<v1::i_calculator>(interface_id))
-            return static_cast<const v1::i_calculator*>(this);
-        return nullptr;
-    }
-
-    CORO_TASK(error_code) add(int a, int b, int& result) override
-    {
-        result = a + b;
-        CO_RETURN rpc::error::OK();
-    }
-
-    CORO_TASK(error_code) subtract(int a, int b, int& result) override
-    {
-        result = a - b;
-        CO_RETURN rpc::error::OK();
-    }
-
-    CORO_TASK(error_code) multiply(int a, int b, int& result) override
-    {
-        result = a * b;
-        CO_RETURN rpc::error::OK();
-    }
-
-    CORO_TASK(error_code) divide(int a, int b, int& result) override
-    {
-        if (b == 0)
-            CO_RETURN rpc::error::INVALID_DATA();
-        result = a / b;
-        CO_RETURN rpc::error::OK();
-    }
-};
-
-inline rpc::shared_ptr<v1::i_calculator> create_calculator()
-{
-    return rpc::make_shared<calculator_impl>();
-}
-
-} // namespace calculator
-```
-
-### Main Program (main.cpp)
-
-```cpp
-#include "calculator_impl.h"
-#include <iostream>
-
-int main()
-{
-    auto calculator = calculator::create_calculator();
-
-    int result;
-    auto error = calculator->add(10, 5, result);
-    std::cout << "10 + 5 = " << result << "\n";
-
-    error = calculator->multiply(3, 4, result);
-    std::cout << "3 * 4 = " << result << "\n";
-
-    return 0;
-}
-```
-
-## 2. Cross-Zone Communication
+## 1. Cross-Zone Communication
 
 ### Server Implementation
 
@@ -191,7 +93,7 @@ public:
 };
 ```
 
-## 3. Coroutine Server
+## 2. Coroutine Server
 
 ```cpp
 #include "calculator_impl.h"
@@ -242,7 +144,7 @@ public:
 };
 ```
 
-## 4. Object Passing
+## 3. Object Passing
 
 ### IDL (idl/service.idl)
 
@@ -330,7 +232,7 @@ public:
 };
 ```
 
-## 5. Error Handling
+## 4. Error Handling
 
 ```cpp
 #include <iostream>
@@ -358,7 +260,7 @@ void handle_error(rpc::error_code error)
 }
 ```
 
-## 6. Dynamic Interface Casting
+## 5. Dynamic Interface Casting
 
 ```cpp
 // Assume foo_ptr is rpc::shared_ptr<xxx::i_foo>
@@ -378,7 +280,7 @@ else
 }
 ```
 
-## 7. Optimistic Pointer
+## 6. Optimistic Pointer
 
 Optimistic pointers are for references to objects with independent lifetimes (e.g., database connections, services managed externally). They don't keep objects alive but also don't return serious errors if the object is gone.
 
@@ -465,7 +367,7 @@ public:
 
 **Key Difference**: `OBJECT_GONE` (optimistic) means "object with independent lifetime is gone" while `OBJECT_NOT_FOUND` (shared) means "object was destroyed while reference was held".
 
-## 8. WebSocket Demo Structure
+## 7. WebSocket Demo Structure
 
 The WebSocket demo shows a complete real-world application:
 
@@ -490,7 +392,7 @@ Key patterns demonstrated:
 - Browser and Node.js clients
 - JSON schema generation
 
-## 9. Test Patterns
+## 8. Test Patterns
 
 ### Template-Based Test Fixture
 
@@ -538,7 +440,7 @@ void run_coro_test(TestFixture& fixture, CoroFunc&& coro_func)
 }
 ```
 
-## 10. Next Steps
+## 9. Next Steps
 
 - [Best Practices](11-best-practices.md) - Guidelines and troubleshooting
 - [API Reference](09-api-reference.md) - Complete API documentation

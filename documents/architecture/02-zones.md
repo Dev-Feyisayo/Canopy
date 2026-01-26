@@ -24,8 +24,30 @@ Think of a zone as a membrane that separates "here" from "there":
 
 ### Zone IDs Must Be Unique
 
-**Critical Rule**: Zone IDs must be unique across the entire distributed system.
-No scheme is specified, however if you are on an IPv4 network, you can use the IP address as the zone ID, combined with a localy assigned random number.  If you are on an IPv6 network, you can use the IP address some form of subnetting addressing scheme. if that is not big enough either the zone type can be extended to have a 128 bit zone id 64bits for the ip address and 64 bits for the local id.  Alternatively you could have 32 bit number for the local number of the zone, and a 32bit number for the object id combining everything into a 128 bit number with the ip address.  Finally if this is not possible the tcp transport has some form of zone id translation scheme.
+**Important Rule**: Zone IDs must be unique across the entire distributed system.
+
+### Zone ID Generation Strategies
+
+Canopy does not prescribe a specific zone ID allocation scheme. Common strategies include:
+
+**IPv4-Based Schemes**:
+- Use IP address as the zone ID base
+- Combine with locally assigned random number or sequential counter
+- Example: `zone_id = (ip_address << 32) | local_counter`
+
+**IPv6-Based Schemes**:
+- Use IP address with subnet-based allocation
+- For larger deployments, extend zone type to 128-bit:
+  - 64 bits for IP address
+  - 64 bits for local ID
+- Alternative: 32 bits for IP, 32 bits for local zone number, 32 bits for object ID, 32 bits reserved
+
+**TCP Transport Zone ID Translation**:
+- For environments where IP-based schemes are not feasible
+- TCP transport provides zone ID translation/mapping capabilities
+
+**Implementation Details**:
+*[Placeholder: Specific zone ID generator implementation and examples to be added]*
 
 ## Zone Hierarchy
 
@@ -363,21 +385,24 @@ Zone 1 → Zone 4 communication routes through Zone 2's passthrough.
 
 ### Zone ID Management
 
+For zone ID generation strategies, see [Zone ID Generation Strategies](#zone-id-generation-strategies).
+
 **Do**:
-- Use centralized zone ID generation for each node and perhaps a centrallised id generator between nodes or better use an ip address.
-- Document zone ID allocation strategy
-- Log zone creation/destruction
+- Use a consistent zone ID generation strategy across your deployment
+- Document your zone ID allocation scheme
+- Log zone creation/destruction events for troubleshooting
+- Consider IP-based schemes for network-distributed systems
 
 **Don't**:
-- Hardcode zone IDs
-- Reuse zone IDs
-- Assume zone IDs are sequential
+- Hardcode zone IDs in source code
+- Reuse zone IDs after a zone dies
+- Assume zone IDs are sequential or contiguous
 
 ### Zone Lifetime
 
 **Do**:
 - Let reference counting manage lifecycle
-- Monitor amnesia events in telemetry
+- Monitor shutdown events in telemetry
 - Handle OBJECT_GONE gracefully
 
 **Don't**:

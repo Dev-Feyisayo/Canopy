@@ -128,7 +128,7 @@ ws.onmessage = (event) => {
 #### Node.js
 
 ```bash
-cd /home/edward/projects/rpc/demos/websocket/client
+cd /rpc/demos/websocket/client
 node test_calculator.js
 ```
 
@@ -171,15 +171,15 @@ If you need to regenerate manually:
 
 ```bash
 # Browser version (static module)
-cd /home/edward/projects/rpc/demos/websocket/client
+cd /rpc/demos/websocket/client
 ./node_modules/.bin/pbjs -t static-module \
-  --path /home/edward/projects/rpc/build/generated/src \
-  -o /home/edward/projects/rpc/demos/websocket/server/www/websocket_proto.js \
+  --path /rpc/build/generated/src \
+  -o /rpc/demos/websocket/server/www/websocket_proto.js \
   websocket_demo/protobuf/websocket_demo_all.proto
 
 # Node.js version (CommonJS)
 ./node_modules/.bin/pbjs -t static-module -w commonjs \
-  --path /home/edward/projects/rpc/build/generated/src \
+  --path /rpc/build/generated/src \
   -o ./websocket_proto.js \
   websocket_demo/protobuf/websocket_demo_all.proto
 ```

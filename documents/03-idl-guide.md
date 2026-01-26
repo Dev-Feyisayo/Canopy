@@ -650,6 +650,8 @@ namespace rpc
 }
 ```
 
+**Note**: The `R^__(...)__^)` syntax is equivalent to C++ raw string literals `R"__(...) __"`. The caret notation (`^`) is used instead of quotes to enable proper syntax highlighting and colorization of embedded C++ code within IDL files.
+
 ## 11. Complete Example
 
 ```idl

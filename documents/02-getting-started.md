@@ -9,9 +9,26 @@ This tutorial guides you through creating your first Canopy application, from de
 
 ## Prerequisites
 
-- completed [Building Canopy](04-building.md)
-- Understanding of [Architecture Overview](architecture/01-overview.md)
+- Completed [Building Canopy](04-building.md)
 - Basic knowledge of C++17
+- CMake 3.24+
+- C++ compiler (Clang 10+, GCC 9.4+, or MSVC 2019+)
+
+## Quick Concepts
+
+Before diving in, here are the essential concepts you'll encounter:
+
+- **Zone**: An execution context (process, thread, enclave, or remote machine) with a unique ID. Zones contain services and communicate via transports.
+
+- **Service**: Manages object lifecycle within a zone. Handles object registration, reference counting, and transport connections. Access via `rpc::service`.
+
+- **Transport**: The communication channel between zones. Examples: local (in-process), TCP (network), SPSC (lock-free queues), SGX (secure enclaves).
+
+- **Proxy/Stub**: The RPC machinery. Proxies live in the client zone and forward calls across transports. Stubs live in the server zone and dispatch to your implementation.
+
+- **IDL (Interface Definition Language)**: Defines RPC interfaces in a C++-like syntax. The code generator creates proxy/stub implementations automatically.
+
+For deeper understanding of the internal architecture, see [Architecture Overview](architecture/01-overview.md).
 
 ## 1. Create the Project Structure
 
@@ -508,7 +525,15 @@ auto result = CO_AWAIT opt_db->query("SELECT * FROM users");
 
 ## 10. Next Steps
 
-- [Bi-Modal Execution](05-bi-modal-execution.md) - Deep dive into execution modes
-- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Explore TCP, SPSC, and SGX transports
+**Continue Learning:**
+- [IDL Guide](03-idl-guide.md) - Learn interface definition language in depth
+- [Bi-Modal Execution](05-bi-modal-execution.md) - Deep dive into blocking vs coroutine modes
+- [Error Handling](06-error-handling.md) - Comprehensive error handling patterns
 - [Examples](10-examples.md) - More code examples
 - [API Reference](09-api-reference.md) - Complete API documentation
+
+**Advanced Reading:**
+For understanding internal architecture and advanced features:
+- [Architecture Overview](architecture/01-overview.md) - Core architectural concepts
+- [Transports and Passthroughs](architecture/06-transports-and-passthroughs.md) - Communication layer internals
+- [Zone Hierarchies](architecture/07-zone-hierarchies.md) - Multi-level zone topologies

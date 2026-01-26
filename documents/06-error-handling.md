@@ -7,12 +7,27 @@ All rights reserved.
 
 Canopy provides a comprehensive error handling system with 23 distinct error codes covering memory, transport, serialization, and lifecycle errors.
 
+For authoritative error code definitions, see `rpc/include/rpc/internal/error_codes.h`.
+
+## Error Code Offsets
+
+Error codes can be customized using offset functions to avoid conflicts with application-specific error codes:
+
+```cpp
+// Customize error code base values
+rpc::error::set_OK_val(0);              // Set OK value (default 0)
+rpc::error::set_offset_val(100);        // Set offset magnitude
+rpc::error::set_offset_val_is_negative(false);  // Offset direction
+```
+
+The **±** notation in tables below indicates the error value is `offset ± ordinal`, where the offset can be configured as positive or negative.
+
 ## 1. Error Code Reference
 
 ### Success
 
 ```cpp
-rpc::error::OK()  // = 0
+rpc::error::OK()  // Configured via set_OK_val(), default = 0
 ```
 
 ### Memory Errors
@@ -119,18 +134,19 @@ switch (error)
 
 ### Error Helper Functions
 
+Canopy provides a built-in error-to-string converter:
+
 ```cpp
-const char* error_to_string(int err)
+const char* rpc::error::to_string(int err);
+```
+
+**Example usage**:
+
+```cpp
+auto error = CO_AWAIT calculator_->add(10, 20, result);
+if (error != rpc::error::OK())
 {
-    if (err == rpc::error::OK())
-        return "OK";
-    if (err == rpc::error::OBJECT_NOT_FOUND())
-        return "object not found";
-    if (err == rpc::error::OBJECT_GONE())
-        return "object gone";
-    if (err == rpc::error::TRANSPORT_ERROR())
-        return "transport error";
-    return "unknown error";
+    std::cerr << "Error: " << rpc::error::to_string(error) << "\n";
 }
 ```
 

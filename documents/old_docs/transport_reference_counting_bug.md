@@ -63,7 +63,7 @@ Ensure all failing tests pass and existing working tests remain fixed.
 - ✅ All existing working tests remain fixed
 
 ## Files to Modify
-- `/var/home/edward/projects/rpc/rpc/src/transport.cpp` - Main implementation
+- `/rpc/src/transport.cpp` - Main implementation
 - Potential synchronization improvements in transport headers
 
 ## Issue Tracking

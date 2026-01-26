@@ -225,7 +225,7 @@ The protobuf JavaScript files are **automatically generated** when you build the
 
 ```bash
 # Build the project (generates proto JS files automatically)
-cd /home/edward/projects/rpc
+cd /rpc
 cmake --build build
 
 # The websocket_proto.js file is automatically created in demos/websocket/client/
@@ -241,7 +241,7 @@ npm install --save-dev protobufjs-cli
 
 # Generate Node.js protobuf code
 ./node_modules/.bin/pbjs -t static-module -w commonjs \
-  --path /home/edward/projects/rpc/build/generated/src \
+  --path /rpc/build/generated/src \
   -o ./websocket_proto.js \
   websocket_demo/protobuf/websocket_demo_all.proto
 ```

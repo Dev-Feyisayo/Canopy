@@ -71,6 +71,7 @@ Internal architecture and design documentation for understanding how Canopy work
 - **architecture/05-proxies-and-stubs.md** - RPC marshalling machinery
 - **architecture/06-transports-and-passthroughs.md** - Communication plumbing
 - **architecture/07-zone-hierarchies.md** - Multi-level zone topologies
+- **architecture/08-core-concepts.md** - Core concepts (zones, services, smart pointers, proxies/stubs)
 
 ### Implementation-Specific Documentation
 Detailed documentation for specific implementations:
