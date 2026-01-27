@@ -535,7 +535,6 @@ namespace rpc
                     stub = item->second.lock();
                     // Don't mask the race condition - if stub is null here, we have a serious problem
                     RPC_ASSERT(stub != nullptr);
-                    stub->add_ref(false, outcall, caller_zone_id);
                 }
                 else
                 {
@@ -547,7 +546,11 @@ namespace rpc
                     wrapped_object_to_stub_[pointer] = stub;
                     stubs_[id] = stub;
                     stub->on_added_to_zone(stub);
-                    stub->add_ref(false, outcall, caller_zone_id);
+                }
+                auto ret = CO_AWAIT stub->add_ref(false, outcall, caller_zone_id);
+                if (ret != rpc::error::OK())
+                {
+                    CO_RETURN ret;
                 }
             }
         }
@@ -701,7 +704,12 @@ namespace rpc
                 }
             }
 
-            stub->add_ref(!!(build_out_param_channel & add_ref_options::optimistic), false, caller_zone_id);
+            auto ret = CO_AWAIT stub->add_ref(
+                !!(build_out_param_channel & add_ref_options::optimistic), false, caller_zone_id);
+            if (ret != rpc::error::OK())
+            {
+                CO_RETURN ret;
+            }
         }
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
         if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)

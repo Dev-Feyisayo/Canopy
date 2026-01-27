@@ -453,9 +453,7 @@ namespace synchronous_generator
                 "if({0}_stub_) {0}_stub_->release_from_service(__rpc_sp->get_destination_zone_id().as_caller());", name);
 
         case STUB_DEMARSHALL_DECLARATION:
-            return fmt::format(R"__(rpc::interface_descriptor {0}_object_{{}};
-                    uint64_t {0}_zone_ = 0)__",
-                name);
+            return fmt::format(R"__(rpc::interface_descriptor {0}_object_{{}};)__", name);
         case STUB_MARSHALL_IN:
         {
             auto ret = fmt::format("{}_object_, ", name);
@@ -1578,8 +1576,8 @@ namespace synchronous_generator
             interface_name);
         proxy("");
 
-        stub("CORO_TASK(int) {0}_stub::call(uint64_t protocol_version, rpc::encoding enc, "
-             "rpc::caller_zone caller_zone_id, rpc::method method_id, const rpc::span& in_data, "
+        stub("CORO_TASK(int) {0}_stub::call([[maybe_unused]] uint64_t protocol_version, rpc::encoding enc, "
+             "[[maybe_unused]] rpc::caller_zone caller_zone_id, rpc::method method_id, const rpc::span& in_data, "
              "std::vector<char>& "
              "__rpc_out_buf)",
             interface_name);

@@ -92,7 +92,7 @@ namespace rpc
         return ret;
     }
 
-    uint64_t object_stub::add_ref(bool is_optimistic, bool outcall, caller_zone caller_zone_id)
+    CORO_TASK(int) object_stub::add_ref(bool is_optimistic, bool outcall, caller_zone caller_zone_id)
     {
         uint64_t count = 0;
         if (is_optimistic)
@@ -131,7 +131,7 @@ namespace rpc
             if (outcall)
             {
                 std::vector<rpc::back_channel_entry> out_back_channel;
-                ret = transport->add_ref(rpc::get_version(),
+                ret = CO_AWAIT transport->add_ref(rpc::get_version(),
                     get_zone()->get_zone_id().as_destination(),
                     id_,
                     caller_zone_id,
@@ -148,7 +148,7 @@ namespace rpc
             RPC_ERROR("Failed to find transport to increment inbound stub count");
         }
 
-        return ret;
+        CO_RETURN ret;
     }
 
     uint64_t object_stub::release(bool is_optimistic, caller_zone caller_zone_id)

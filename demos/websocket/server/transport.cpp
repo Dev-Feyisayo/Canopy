@@ -92,6 +92,7 @@ namespace websocket_demo
 
     CORO_TASK(int)
     transport::outbound_try_cast(uint64_t protocol_version,
+        rpc::caller_zone caller_zone_id,
         rpc::destination_zone destination_zone_id,
         rpc::object object_id,
         rpc::interface_ordinal interface_id,

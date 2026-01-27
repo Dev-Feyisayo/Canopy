@@ -69,10 +69,11 @@ namespace websocket_demo
 
         CORO_TASK(int)
         outbound_try_cast(uint64_t protocol_version,
+            rpc::caller_zone caller_zone_id,
             rpc::destination_zone destination_zone_id,
             rpc::object object_id,
             rpc::interface_ordinal interface_id,
-            const std::vector<rpc::back_channel_entry>& back_channel,
+            const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
 
         CORO_TASK(int)

@@ -190,7 +190,7 @@ namespace rpc
          *
          * Thread-Safety: Uses atomic operations for counts, mutex for per-zone maps
          */
-        uint64_t add_ref(bool is_optimistic, bool outcall, caller_zone caller_zone_id);
+        CORO_TASK(int) add_ref(bool is_optimistic, bool outcall, caller_zone caller_zone_id);
 
         /**
          * @brief Release reference to this stub
