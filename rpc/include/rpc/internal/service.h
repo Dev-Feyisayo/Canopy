@@ -2,6 +2,27 @@
  *   Copyright (c) 2026 Edward Boggis-Rolfe
  *   All rights reserved.
  */
+
+/**
+ * @file service.h
+ * @brief Core zone management and object lifetime tracking for Canopy RPC
+ *
+ * This file defines the service class, which represents an execution zone in
+ * the Canopy RPC system. A zone is an isolated boundary for object lifetime
+ * management, providing the foundation for cross-context communication (in-process,
+ * inter-process, remote machines, SGX enclaves).
+ *
+ * Key Architectural Concepts:
+ * - Zone: An execution context with its own object registry and service management
+ * - Service: Manages all object lifetimes and RPC communications within a zone
+ * - Transport: Connects two adjacent zones for bidirectional communication
+ * - Service Proxy: Represents a remote zone and routes calls through transports
+ * - Stub: Server-side RPC endpoint that wraps local objects for remote access
+ * - Proxy: Client-side RPC endpoint that represents remote objects locally
+ *
+ * See documents/architecture/01-overview.md for complete architecture details.
+ */
+
 #pragma once
 
 #include <string>
@@ -43,14 +64,60 @@ namespace rpc
 
     const object dummy_object_id = {std::numeric_limits<uint64_t>::max()};
 
+    /**
+     * @brief Callback interface for object lifecycle notifications
+     *
+     * Services can register event listeners to receive notifications when
+     * objects are released or zone events occur.
+     */
     class service_event
     {
     public:
         virtual ~service_event() = default;
+
+        /**
+         * @brief Called when an object is released in a remote zone
+         * @param object_id The ID of the released object
+         * @param destination The zone where the object was released
+         */
         virtual CORO_TASK(void) on_object_released(object object_id, destination_zone destination) = 0;
     };
 
-    // responsible for all object lifetimes created within the zone
+    /**
+     * @brief Core zone manager responsible for all object lifetimes and RPC communications
+     *
+     * The service class is the central component of a Canopy RPC zone. It manages:
+     * - Object lifetime tracking via stubs (server-side wrappers)
+     * - Remote zone connections via service_proxies
+     * - Transport registration and routing
+     * - Reference counting across zone boundaries
+     * - Marshalling and unmarshalling of RPC calls
+     *
+     * Zone Lifecycle Management:
+     * - Services are kept alive by local objects (stubs) living in the zone
+     * - Child services hold strong references to parent transports
+     * - Transports are owned by service_proxies and passthroughs
+     * - Services hold only weak references to transports (registry for lookup)
+     *
+     * Thread Safety:
+     * - All public methods are thread-safe unless documented otherwise
+     * - Stub registration uses stub_control_ mutex
+     * - Transport registration uses zone_control mutex
+     * - get_current_service() returns thread-local service pointer
+     *
+     * Ownership Model:
+     * - Services own stubs (via shared_ptr in stubs_ map)
+     * - Stubs hold strong reference to service (keeps service alive)
+     * - Service proxies own transports (strong member_ptr)
+     * - Services hold weak references to proxies and transports
+     *
+     * Hidden Service Principle:
+     * Each object only interacts with the current service via get_current_service().
+     * Objects don't directly reference their owning service, maintaining clean
+     * separation between object lifetime and zone lifetime.
+     *
+     * See documents/architecture/03-services.md for detailed service lifecycle.
+     */
     class service : public i_marshaller, public std::enable_shared_from_this<rpc::service>
     {
     protected:
@@ -116,6 +183,12 @@ namespace rpc
 #endif
         virtual ~service();
 
+        /**
+         * @brief Generate a globally unique zone identifier
+         * @return A new zone ID that is unique across all zones in the system
+         *
+         * Thread-Safety: Safe to call from multiple threads
+         */
         static zone generate_new_zone_id();
 
 #ifdef CANOPY_BUILD_COROUTINE
@@ -133,29 +206,116 @@ namespace rpc
         auto get_scheduler() const { return io_scheduler_; }
 #endif
 
-        // we are using a pointer as this is a thread local variable it will not change mid stream, only use this function when servicing an rpc call
+        /**
+         * @brief Get the current service for this thread
+         * @return Pointer to the service currently processing RPC calls on this thread
+         *
+         * The current service is thread-local and set automatically during RPC call
+         * processing. This allows objects to access their owning service without
+         * storing explicit references (Hidden Service Principle).
+         *
+         * Thread-Safety: Returns thread-local value, safe to call from any thread
+         *
+         * Usage: Only call this function when servicing an RPC call. The value is
+         * only guaranteed to be valid during stub method execution.
+         */
         static service* get_current_service();
+
+        /**
+         * @brief Set the current service for this thread
+         * @param svc The service to set as current for this thread
+         *
+         * This is called automatically by the RPC framework during call processing.
+         * User code should rarely need to call this directly.
+         *
+         * Thread-Safety: Sets thread-local value, safe to call from any thread
+         */
         static void set_current_service(service* svc);
 
+        /**
+         * @brief Generate a new object ID unique within this zone
+         * @return A new object identifier
+         *
+         * Thread-Safety: Safe to call from multiple threads (uses atomic increment)
+         */
         object generate_new_object_id() const;
 
         std::string get_name() const { return name_; }
         zone get_zone_id() const { return zone_id_; }
 
+        /**
+         * @brief Check if the zone has no active objects
+         * @return true if all stubs have been released, false otherwise
+         *
+         * This is used during service destruction to verify clean shutdown.
+         * An assertion will fire if objects remain when the service destructs.
+         */
         virtual bool check_is_empty() const;
 
         /////////////////////////////////
         // NOTIFICATION LOGIC
         /////////////////////////////////
+
+        /**
+         * @brief Register a callback for object lifecycle events
+         * @param event Weak pointer to service_event implementation
+         *
+         * Registered events will be notified when objects are released.
+         * Uses weak_ptr to avoid keeping event listeners alive.
+         *
+         * Thread-Safety: Protected by service_events_control_ mutex
+         */
         void add_service_event(const std::weak_ptr<service_event>& event);
+
+        /**
+         * @brief Unregister an object lifecycle event callback
+         * @param event Weak pointer to the service_event to remove
+         *
+         * Thread-Safety: Protected by service_events_control_ mutex
+         */
         void remove_service_event(const std::weak_ptr<service_event>& event);
+
+        /**
+         * @brief Notify all registered event listeners that an object was released
+         * @param object_id The ID of the released object
+         * @param destination The zone where the release occurred
+         *
+         * Thread-Safety: Protected by service_events_control_ mutex
+         */
         CORO_TASK(void) notify_object_gone_event(object object_id, destination_zone destination);
 
-        // passed by value implementing an implicit lock on the life time of ptr
+        /**
+         * @brief Get the object ID for a local interface pointer
+         * @param ptr Shared pointer to a local object (must be local, not remote)
+         * @return The object ID associated with this pointer
+         *
+         * Parameter passed by value to ensure the object stays alive during lookup.
+         * This implements an implicit lock on the lifetime of ptr.
+         *
+         * Thread-Safety: Protected by stub_control_ mutex
+         */
         object get_object_id(const shared_ptr<casting_interface>& ptr) const;
 
-        // Single transport version - for remote connections (SPSC/TCP/etc)
-        // Creates service_proxy bound to the provided transport
+        /**
+         * @brief Connect to a remote zone via a transport
+         * @tparam in_param_type Type of interface to send to remote zone
+         * @tparam out_param_type Type of interface to receive from remote zone
+         * @param name Descriptive name for the connection
+         * @param child_transport Transport connecting to the remote zone
+         * @param input_interface Interface to marshal and send to remote zone
+         * @param output_interface[out] Interface received from remote zone
+         * @return error::OK() on success, error code on failure
+         *
+         * This method:
+         * 1. Marshals the input_interface (if provided) and creates a stub
+         * 2. Calls connect() on the transport
+         * 3. Creates a service_proxy for the remote zone
+         * 4. Demarshals the output_interface (if provided)
+         *
+         * Used for SPSC, TCP, and other non-hierarchical transports.
+         *
+         * Thread-Safety: Protected by internal mutexes
+         */
         template<class in_param_type, class out_param_type>
         CORO_TASK(int)
         connect_to_zone(const char* name,
@@ -163,8 +323,27 @@ namespace rpc
             const rpc::shared_ptr<in_param_type>& input_interface,
             rpc::shared_ptr<out_param_type>& output_interface);
 
-        // Attach remote zone - for peer-to-peer connections
-        // Takes single transport since this is called by the remote peer during connection
+        /**
+         * @brief Attach a remote zone during peer-to-peer connection
+         * @tparam PARENT_INTERFACE Type of interface received from peer
+         * @tparam CHILD_INTERFACE Type of interface to send to peer
+         * @param name Descriptive name for the connection
+         * @param peer_transport Transport to the peer zone
+         * @param input_descr Descriptor of interface received from peer
+         * @param output_descr[out] Descriptor of interface to send to peer
+         * @param fn Callback to create local interface after demarshalling peer interface
+         * @return error::OK() on success, error code on failure
+         *
+         * This is the server-side counterpart to connect_to_zone(). It:
+         * 1. Demarshals the parent interface from input_descr
+         * 2. Creates service_proxy for the peer zone
+         * 3. Calls the user-provided function to create the child interface
+         * 4. Marshals the child interface into output_descr
+         *
+         * Called by the remote peer during connection establishment.
+         *
+         * Thread-Safety: Protected by internal mutexes
+         */
         template<class PARENT_INTERFACE, class CHILD_INTERFACE>
         CORO_TASK(int)
         attach_remote_zone(const char* name,
@@ -177,9 +356,32 @@ namespace rpc
 
         // protected:
         /////////////////////////////////
-        // i_marshaller LOGIC
+        // i_marshaller INTERFACE IMPLEMENTATION
         /////////////////////////////////
+        // These methods implement the i_marshaller interface, routing RPC operations
+        // to the appropriate transport. They lookup the destination zone's service_proxy
+        // and delegate to the virtual outbound_* methods for extensibility.
 
+        /**
+         * @brief Send an RPC call with return value
+         * @param protocol_version RPC protocol version
+         * @param encoding Serialization format (yas_binary, json, etc)
+         * @param tag Operation tag for tracing
+         * @param caller_zone_id Zone making the call
+         * @param destination_zone_id Target zone
+         * @param object_id Target object ID
+         * @param interface_id Target interface ordinal
+         * @param method_id Method to invoke
+         * @param in_data Serialized input parameters
+         * @param out_buf_[out] Buffer for serialized return value
+         * @param in_back_channel Input back-channel data for reference counting
+         * @param out_back_channel[out] Output back-channel data for reference counting
+         * @return error::OK() on success, error code on failure
+         *
+         * Looks up transport via service_proxy and delegates to outbound_send().
+         *
+         * Thread-Safety: Protected by zone_control mutex for transport lookup
+         */
         CORO_TASK(int)
         send(uint64_t protocol_version,
             encoding encoding,
@@ -193,6 +395,23 @@ namespace rpc
             std::vector<char>& out_buf_,
             const std::vector<rpc::back_channel_entry>& in_back_channel,
             std::vector<rpc::back_channel_entry>& out_back_channel) override;
+        /**
+         * @brief Post a one-way RPC call (fire-and-forget)
+         * @param protocol_version RPC protocol version
+         * @param encoding Serialization format
+         * @param tag Operation tag for tracing
+         * @param caller_zone_id Zone making the call
+         * @param destination_zone_id Target zone
+         * @param object_id Target object ID
+         * @param interface_id Target interface ordinal
+         * @param method_id Method to invoke
+         * @param in_data Serialized input parameters
+         * @param in_back_channel Input back-channel data for reference counting
+         *
+         * Unlike send(), post() does not wait for a return value.
+         *
+         * Thread-Safety: Protected by zone_control mutex for transport lookup
+         */
         CORO_TASK(void)
         post(uint64_t protocol_version,
             encoding encoding,
@@ -309,10 +528,20 @@ namespace rpc
 
     public:
         /////////////////////////////////
-        // STUB LOGIC
+        // STUB REGISTRATION AND FACTORY LOGIC
         /////////////////////////////////
 
-        // note this function is not thread safe!  Use it before using the service class for normal operation
+        /**
+         * @brief Register a factory for creating interface stubs
+         * @param id_getter Function to get interface ordinal for a protocol version
+         * @param factory Function to create stub from another stub (for casting)
+         *
+         * This registers a factory that can create stubs for a specific interface type.
+         * Used during stub creation and interface casting operations.
+         *
+         * IMPORTANT: This function is NOT thread-safe. Call it during service initialization
+         * before the service is used for normal RPC operations.
+         */
         void add_interface_stub_factory(std::function<interface_ordinal(uint8_t)> id_getter,
             std::shared_ptr<std::function<std::shared_ptr<rpc::i_interface_stub>(const std::shared_ptr<rpc::i_interface_stub>&)>>
                 factory);
@@ -329,8 +558,35 @@ namespace rpc
         uint64_t release_local_stub(
             const std::shared_ptr<object_stub>& stub, bool is_optimistic, caller_zone caller_zone_id);
 
+        /**
+         * @brief Register a transport to an adjacent zone
+         * @param adjacent_zone_id The zone ID this transport connects to
+         * @param transport_ptr The transport to register
+         *
+         * Transports are owned by service_proxies and passthroughs. The service
+         * maintains only weak references for lookup purposes.
+         *
+         * Thread-Safety: Protected by zone_control mutex
+         */
         void add_transport(destination_zone adjacent_zone_id, const std::shared_ptr<transport>& transport_ptr);
+
+        /**
+         * @brief Unregister a transport to an adjacent zone
+         * @param adjacent_zone_id The zone ID of the transport to remove
+         *
+         * Thread-Safety: Protected by zone_control mutex
+         */
         void remove_transport(destination_zone adjacent_zone_id);
+
+        /**
+         * @brief Get transport to a destination zone (may route through intermediaries)
+         * @param destination_zone_id The target zone
+         * @return Shared pointer to transport, or nullptr if not found
+         *
+         * Looks up transport in the registry. Passthroughs can route to non-adjacent zones.
+         *
+         * Thread-Safety: Protected by zone_control mutex
+         */
         std::shared_ptr<rpc::transport> get_transport(destination_zone destination_zone_id) const;
 
     protected:
@@ -424,24 +680,63 @@ namespace rpc
             rpc::interface_descriptor& descriptor);
     };
 
-    // Child services need to maintain the lifetime of the root object in its zone
+    /**
+     * @brief Service for child zones in hierarchical zone relationships
+     *
+     * Child services represent zones created by parent zones in hierarchical
+     * transports (local, SGX enclave, DLL). They differ from regular services by:
+     * - Holding a strong reference to the parent transport
+     * - Maintaining the parent zone's lifetime while the child exists
+     *
+     * Hierarchical Transport Circular Dependency Pattern:
+     * Parent Zone: child_transport → member_ptr<parent_transport> (to child)
+     * Child Zone:  parent_transport → member_ptr<child_transport> (to parent)
+     *
+     * Stack-Based Lifetime Protection:
+     * When calls cross zone boundaries, stack-based shared_ptr protects transport
+     * lifetime. This prevents use-after-free during active calls even if circular
+     * references are broken.
+     *
+     * Safe Disconnection Protocol:
+     * 1. child_service destructor calls parent_transport->set_status(DISCONNECTED)
+     * 2. parent_transport propagates status to parent zone
+     * 3. child_transport::on_child_disconnected() breaks its circular reference
+     * 4. Both transports break their references, resolving the circular dependency
+     * 5. Stack protection ensures no use-after-free during active calls
+     *
+     * See documents/architecture/07-zone-hierarchies.md and
+     * documents/transports/hierarchical.md for complete details.
+     */
     class child_service : public service
     {
-        // the enclave needs to hold a hard lock to a root object that represents a runtime
-        // the enclave service lifetime is managed by the transport functions
         mutable std::mutex parent_protect;
-        // Strong reference to parent transport - keeps parent zone alive
+        // CRITICAL: Strong reference to parent transport - keeps parent zone alive
+        // This ensures parent remains reachable while child exists
         std::shared_ptr<transport> parent_transport_;
         destination_zone parent_zone_id_;
 
     public:
-        // Set parent transport - must be called during child zone creation
+        /**
+         * @brief Set the parent transport (MUST be called during child zone creation)
+         * @param parent_transport Transport to the parent zone
+         *
+         * This establishes the child's strong reference to the parent, completing
+         * the circular dependency pattern for hierarchical transports.
+         *
+         * Thread-Safety: Protected by parent_protect mutex
+         */
         void set_parent_transport(const std::shared_ptr<transport>& parent_transport)
         {
             std::lock_guard lock(parent_protect);
             parent_transport_ = parent_transport;
         }
 
+        /**
+         * @brief Get the parent transport
+         * @return Shared pointer to parent transport
+         *
+         * Thread-Safety: Protected by parent_protect mutex
+         */
         std::shared_ptr<transport> get_parent_transport() const
         {
             std::lock_guard lock(parent_protect);

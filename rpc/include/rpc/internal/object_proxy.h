@@ -62,7 +62,6 @@ namespace rpc
         void release(bool is_optimistic);
 
         // Called when this object_proxy inherits a shared reference from a race condition during the destruction of a
-        // proxy but the service other_zones collection still has a record of it
         void add_ref_shared() { shared_count_.fetch_add(1, std::memory_order_relaxed); }
 
         // Called when this object_proxy inherits an optimistic reference from a race condition during the destruction of a proxy

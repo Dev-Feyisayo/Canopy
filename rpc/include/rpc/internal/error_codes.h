@@ -2,6 +2,32 @@
  *   Copyright (c) 2026 Edward Boggis-Rolfe
  *   All rights reserved.
  */
+
+/**
+ * @file error_codes.h
+ * @brief RPC error code definitions for Canopy
+ *
+ * This file defines all error codes returned by RPC operations. Error codes
+ * are represented as integers to allow integration with existing error handling
+ * systems (errno, HRESULT, etc.).
+ *
+ * Error Code Ranges:
+ * - OK() returns 0 (success)
+ * - MIN() to MAX() define the valid error range
+ * - Negative or positive offsets can be configured via set_offset_val()
+ *
+ * Common Usage:
+ * @code
+ * int err = CO_AWAIT proxy->some_method();
+ * if (err != rpc::error::OK()) {
+ *     // Handle error
+ *     const char* msg = rpc::error::to_string(err);
+ * }
+ * @endcode
+ *
+ * See documents/architecture/06-error-handling.md for error handling patterns.
+ */
+
 #pragma once
 
 namespace rpc

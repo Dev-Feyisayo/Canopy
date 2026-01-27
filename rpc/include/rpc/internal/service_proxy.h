@@ -28,11 +28,9 @@ namespace rpc
     class service;
     class child_service;
     class object_proxy;
-    class i_marshaller;
     class transport;
 
-    // the class that encapsulates an environment or zone
-    // only host code can use this class directly other enclaves *may* have access to the i_service_proxy derived interface
+    // this class is a proxy to a remote zone service
     class service_proxy : public std::enable_shared_from_this<rpc::service_proxy>
     {
         std::string name_;

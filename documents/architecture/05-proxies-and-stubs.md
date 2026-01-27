@@ -113,8 +113,6 @@ class service_proxy
     std::shared_ptr<service> service_;       // Local service
     stdex::member_ptr<transport> transport_; // Transport to remote zone
 
-    // Cache of remote object proxies
-    std::map<rpc::object, std::weak_ptr<object_proxy>> other_zones_;
 };
 ```
 

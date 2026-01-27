@@ -92,7 +92,7 @@ namespace rpc
         // The cleanup mechanism in service_proxy handles the proper ordering.
 
         object_id_generator_ = 0;
-        // to do: RPC_ASSERT that there are no more object_stubs in memory
+        // Verify all object stubs have been properly released before service destruction
         bool is_empty = check_is_empty();
         (void)is_empty;
         RPC_ASSERT(is_empty);

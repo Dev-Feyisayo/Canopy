@@ -3,6 +3,53 @@
  *   All rights reserved.
  */
 
+/**
+ * @file remote_pointer.h
+ * @brief RPC-aware smart pointers with remote reference counting
+ *
+ * This file implements the core smart pointer types for Canopy RPC:
+ * - rpc::shared_ptr<T> - RAII-based remote reference counting
+ * - rpc::weak_ptr<T> - Non-owning weak references
+ * - rpc::optimistic_ptr<T> - Non-owning references without reference counting overhead
+ *
+ * CRITICAL DISTINCTION - rpc::shared_ptr vs std::shared_ptr:
+ * =========================================================
+ * rpc::shared_ptr and std::shared_ptr are FUNDAMENTALLY DIFFERENT types:
+ *
+ * - **NEVER** cast between rpc::shared_ptr and std::shared_ptr
+ * - **NEVER** use raw pointer conversion between the two types
+ * - **NEVER** store rpc::shared_ptr in containers expecting std::shared_ptr
+ *
+ * Key Differences:
+ * - rpc::shared_ptr: Marshallable across zone boundaries, remote reference counting
+ * - std::shared_ptr: Local-only, used for core RPC infrastructure (service, transport, etc.)
+ *
+ * Type Ownership Patterns:
+ * - Core components (service, transport, proxy, stub) OWN std::shared_ptr objects
+ * - Core components can REFERENCE rpc::shared_ptr objects (IDL interfaces)
+ * - IDL interfaces ONLY work with rpc::shared_ptr for marshalling compatibility
+ *
+ * Control Blocks and Reference Counting:
+ * - control_block: Reference counting metadata (shared_count, weak_count, object_proxy)
+ * - Local objects: Reference counted via control_block in local zone
+ * - Remote objects: Reference counted via RPC add_ref/release calls across zones
+ * - Async add_ref: 0→1 reference transitions use async RPC to prevent deadlock
+ *
+ * Marshalling Compatibility:
+ * rpc::shared_ptr is designed to be marshalled across zone boundaries. When a
+ * shared_ptr crosses a zone boundary:
+ * 1. Marshalled as interface_descriptor (zone_id, object_id, interface_ordinal)
+ * 2. Receiving zone creates proxy with object_proxy backend
+ * 3. Reference counts synchronized via RPC add_ref/release
+ *
+ * Test Mode:
+ * When TEST_STL_COMPLIANCE is defined, these classes use std namespace for
+ * STL compliance testing. In normal mode, they use the rpc namespace.
+ *
+ * See documents/architecture/04-memory-management.md for complete reference
+ * counting and smart pointer architecture.
+ */
+
 #pragma once
 
 #include <atomic>
@@ -15,8 +62,8 @@
 
 #include "assert.h" //rpc assert.h
 
-// note that these classes borrow the std namespace for testing purposes in tests/std_test/tests
-// for normal rpc mode these classes use the rpc namespace
+// Test mode: Use std namespace for STL compliance testing
+// Normal mode: Use rpc namespace for RPC-aware smart pointers
 
 #ifdef TEST_STL_COMPLIANCE
 
@@ -718,6 +765,54 @@ namespace rpc
 
     } // namespace __rpc_internal
 
+    /**
+     * @brief Remote-aware shared pointer with reference counting across zone boundaries
+     * @tparam T Type must derive from casting_interface (enforced in non-test mode)
+     *
+     * rpc::shared_ptr provides RAII-based reference counting that works across zone
+     * boundaries. It differs fundamentally from std::shared_ptr:
+     *
+     * Key Features:
+     * - Marshallable across zone boundaries
+     * - Remote reference counting via RPC add_ref/release calls
+     * - Integrates with object_proxy for remote object access
+     * - Type-safe casting via casting_interface
+     *
+     * CRITICAL: rpc::shared_ptr vs std::shared_ptr
+     * ============================================
+     * These are DIFFERENT TYPES with different ownership semantics:
+     * - rpc::shared_ptr: Manages IDL interfaces, marshallable, remote reference counting
+     * - std::shared_ptr: Manages core infrastructure, local-only, standard C++ semantics
+     *
+     * **NEVER** cast between these types or use raw pointer conversion!
+     *
+     * Control Block Structure:
+     * - Local objects: control_block manages reference counts in local zone
+     * - Remote objects: control_block holds object_proxy that routes to remote zone
+     * - Shared count: Number of shared_ptr instances (RAII)
+     * - Weak count: Number of weak_ptr instances (non-owning)
+     *
+     * Reference Counting:
+     * - Copy constructor/assignment: Increment shared count
+     * - Destructor: Decrement shared count, delete when zero
+     * - Remote objects: add_ref/release RPC calls maintain remote stub's reference count
+     * - Async add_ref: 0→1 transitions use async RPC to prevent deadlock
+     *
+     * Marshalling:
+     * When crossing zone boundaries, shared_ptr is marshalled as interface_descriptor
+     * and reconstructed as a proxy in the destination zone.
+     *
+     * Thread Safety:
+     * - Control block uses atomic reference counts
+     * - Multiple threads can copy/destroy shared_ptr instances safely
+     * - Accessing the pointed-to object requires external synchronization
+     *
+     * Type Constraints:
+     * - T must derive from casting_interface (except in TEST_STL_COMPLIANCE mode)
+     * - Array types are not supported
+     *
+     * See documents/architecture/04-memory-management.md for complete details.
+     */
     template<typename T> class shared_ptr
     {
         using element_type_impl = std::remove_extent_t<T>;
@@ -733,7 +828,9 @@ namespace rpc
         }
 #endif
 
+        // Raw pointer to the managed object
         element_type_impl* ptr_{nullptr};
+        // Control block managing reference counts and lifetime
         __rpc_internal::__shared_ptr_control_block::control_block_base* cb_{nullptr};
 
         template<typename Y>
@@ -1136,6 +1233,40 @@ namespace rpc
 #endif
     };
 
+    /**
+     * @brief Non-owning weak reference to rpc::shared_ptr managed objects
+     * @tparam T Type must match the shared_ptr's type
+     *
+     * rpc::weak_ptr provides non-owning references to objects managed by
+     * rpc::shared_ptr. It breaks circular reference cycles without affecting
+     * object lifetime.
+     *
+     * Key Features:
+     * - Non-owning: Doesn't prevent object deletion
+     * - Safe access: lock() returns shared_ptr or nullptr if expired
+     * - Reference tracking: Increments weak count, not shared count
+     *
+     * Usage Pattern:
+     * @code
+     * rpc::shared_ptr<Foo> strong = ...;
+     * rpc::weak_ptr<Foo> weak = strong;
+     * // Later...
+     * if (auto locked = weak.lock()) {
+     *     locked->do_something(); // Safe to use
+     * } // Object deleted if locked was the last shared_ptr
+     * @endcode
+     *
+     * Control Block Lifetime:
+     * - Weak count keeps control block alive (but not the object)
+     * - Object deleted when shared count reaches zero
+     * - Control block deleted when both shared and weak counts reach zero
+     *
+     * Thread Safety:
+     * - lock() uses atomic operations to safely create shared_ptr
+     * - Multiple threads can copy/destroy weak_ptr safely
+     *
+     * See documents/architecture/04-memory-management.md for weak pointer semantics.
+     */
     template<typename T> class weak_ptr
     {
         using element_type_impl = std::remove_extent_t<T>;
@@ -1872,6 +2003,47 @@ namespace rpc
 
     // optimistic_ptr<T> - Non-RAII smart pointer for RPC scenarios
     // Weak semantics for local objects, shared semantics for remote proxies
+    /**
+     * @brief Non-owning reference without reference counting overhead
+     * @tparam T Type must derive from casting_interface
+     *
+     * rpc::optimistic_ptr provides non-owning references to objects with minimal
+     * overhead compared to shared_ptr. It's "optimistic" because it assumes the
+     * referenced object will remain valid during its use.
+     *
+     * Key Differences from shared_ptr:
+     * - No RAII: Doesn't keep object alive
+     * - No remote add_ref/release: Minimal RPC overhead
+     * - Optimistic count: Separate from shared count
+     * - Use case: Temporary references, callbacks, observers
+     *
+     * Reference Counting:
+     * - Maintains optimistic_count separate from shared_count
+     * - Object deleted when shared_count reaches zero (regardless of optimistic_count)
+     * - Control block deleted when BOTH shared and optimistic counts reach zero
+     *
+     * Safety Considerations:
+     * - Caller must ensure referenced object outlives the optimistic_ptr
+     * - No automatic lifetime management
+     * - Dangling references possible if object deleted while optimistic_ptr exists
+     *
+     * Internal Structure:
+     * - Local objects: local_proxy_holder_ holds the callable proxy
+     * - Remote objects: ptr_ points to interface_proxy, cb_ for reference tracking
+     * - local_proxy_holder_ IS the callable proxy (conditional forwarding pattern)
+     *
+     * Use Cases:
+     * - Temporary references within a known scope
+     * - Callback targets that don't need lifetime management
+     * - Observer patterns where observer doesn't own observed object
+     *
+     * Thread Safety:
+     * - Uses atomic optimistic count
+     * - Multiple threads can copy/destroy optimistic_ptr safely
+     * - Accessing object requires external synchronization
+     *
+     * See documents/architecture/04-memory-management.md for optimistic pointer semantics.
+     */
     template<typename T> class optimistic_ptr
     {
         using element_type_impl = std::remove_extent_t<T>;
@@ -1880,8 +2052,8 @@ namespace rpc
         static_assert(__rpc_internal::is_casting_interface_derived<T>::value,
             "optimistic_ptr can only manage casting_interface-derived types");
 
-        // For local proxies: local_proxy_holder_ holds the local_proxy (callable target), ptr_ and cb_ are nullptr
-        // For remote proxies: ptr_ points to interface_proxy (callable target), cb_ for refcounting, local_proxy_holder_ is nullptr
+        // For local objects: local_proxy_holder_ holds the local_proxy (callable target), ptr_ and cb_ are nullptr
+        // For remote objects: ptr_ points to interface_proxy (callable target), cb_ for refcounting, local_proxy_holder_ is nullptr
         // Note: local_proxy_holder_ uses conditional forwarding - it IS the callable proxy, not the underlying object
         element_type_impl* ptr_{nullptr};
         __rpc_internal::__shared_ptr_control_block::control_block_base* cb_{nullptr};

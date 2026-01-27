@@ -2,6 +2,28 @@
  *   Copyright (c) 2026 Edward Boggis-Rolfe
  *   All rights reserved.
  */
+
+/**
+ * @file transport.h
+ * @brief Transport abstraction for bidirectional zone-to-zone communication
+ *
+ * Transports connect two adjacent zones and handle the marshalling/unmarshalling
+ * of RPC calls between them. Each transport manages:
+ * - Bidirectional communication (inbound and outbound methods)
+ * - Reference counting across zone boundaries
+ * - Passthrough routing to non-adjacent zones
+ * - Connection lifecycle (CONNECTING → CONNECTED → DISCONNECTED)
+ *
+ * Transport Ownership Model:
+ * - Service proxies own transports (strong member_ptr reference)
+ * - Passthroughs own both forward and reverse transports
+ * - Child services hold strong references to parent transports
+ * - Services hold only weak references (registry for lookup)
+ *
+ * See documents/architecture/06-transports-and-passthroughs.md and
+ * documents/transports/ for transport implementations.
+ */
+
 #pragma once
 
 #include <rpc/internal/marshaller.h>
@@ -21,6 +43,16 @@ namespace rpc
 {
     class pass_through;
 
+    /**
+     * @brief Transport connection status lifecycle
+     *
+     * Status Progression:
+     * CONNECTING → CONNECTED → DISCONNECTED (normal flow)
+     * CONNECTED → RECONNECTING → CONNECTED (recovery flow)
+     * Any state → DISCONNECTED (error/shutdown)
+     *
+     * DISCONNECTED is a terminal state - no further traffic allowed.
+     */
     enum class transport_status
     {
         CONNECTING,   // Initial state, establishing connection
@@ -29,6 +61,12 @@ namespace rpc
         DISCONNECTED  // Terminal state, no further traffic allowed
     };
 
+    /**
+     * @brief Key for identifying passthrough routes between zone pairs
+     *
+     * Used to register and lookup passthrough handlers that route RPC calls
+     * through intermediary zones to reach non-adjacent destinations.
+     */
     struct pass_through_key
     {
         destination_zone zone1;
@@ -55,6 +93,50 @@ namespace std
 namespace rpc
 {
 
+    /**
+     * @brief Base class for all transport implementations
+     *
+     * A transport connects two adjacent zones and handles bidirectional RPC
+     * communication. It implements the i_marshaller interface to route calls
+     * between zones.
+     *
+     * Key Responsibilities:
+     * - Marshal/unmarshal RPC calls between zones
+     * - Track reference counts (inbound stubs, outbound proxies)
+     * - Route calls to local service or remote transport
+     * - Manage passthrough routing for non-adjacent zones
+     * - Handle connection lifecycle and status transitions
+     *
+     * Inbound vs Outbound Methods:
+     * - inbound_*: Process calls arriving from remote zone (route to local service or passthrough)
+     * - outbound_*: Send calls to remote zone (implemented by derived classes)
+     *
+     * Reference Counting:
+     * - outbound_proxy_count_: Tracks proxies in local zone pointing to remote objects
+     * - inbound_stub_count_: Tracks stubs in local zone referenced by remote proxies
+     * - Used to determine when transport can safely disconnect
+     *
+     * Back-Channel Data Flow:
+     * Back-channel vectors carry reference counting operations:
+     * - in_back_channel: Reference operations arriving with the call
+     * - out_back_channel: Reference operations to send with the response
+     *
+     * Passthrough Routing:
+     * Transports can route calls to non-adjacent zones through intermediary
+     * zones using passthrough handlers registered for zone pairs.
+     *
+     * Thread Safety:
+     * - Status changes protected by atomic operations
+     * - Passthrough map protected by destinations_mutex_
+     * - Reference counts use atomic variables
+     *
+     * Ownership Model:
+     * - Service proxies own transports (strong member_ptr)
+     * - Passthroughs own both forward and reverse transports
+     * - Services hold weak references (lookup registry)
+     *
+     * See documents/architecture/06-transports-and-passthroughs.md for details.
+     */
     class transport : public i_marshaller, public std::enable_shared_from_this<transport>
     {
     private:
@@ -63,19 +145,21 @@ namespace rpc
         // Zone identity
         zone zone_id_;
 
-        // the zone on the other side of the transport
+        // Zone on the other side of the transport
         zone adjacent_zone_id_;
 
-        // Local service reference
+        // Weak reference to local service (lookup only, doesn't keep alive)
         std::weak_ptr<service> service_;
 
         mutable std::shared_mutex destinations_mutex_;
 
-        // passthrough map
+        // Passthrough routing map for non-adjacent zones
         std::unordered_map<pass_through_key, std::weak_ptr<pass_through>> pass_thoughs_;
 
-        // the list of zone ids that the ajacent zone knows about
+        // Reference count tracking: maps zone IDs to counts of proxies/stubs
+        // Tracks proxies in local zone that reference objects in remote zones
         std::unordered_map<destination_zone, std::atomic<uint64_t>> outbound_proxy_count_;
+        // Tracks stubs in local zone that are referenced by remote proxies
         std::unordered_map<caller_zone, std::atomic<uint64_t>> inbound_stub_count_;
 
         std::atomic<int64_t> destination_count_ = 0;
@@ -117,12 +201,51 @@ namespace rpc
 
         void remove_passthrough(destination_zone zone1, destination_zone zone2);
 
+        /**
+         * @brief Increment reference count for proxies pointing to destination zone
+         * @param dest The destination zone being referenced
+         *
+         * Called when a new proxy is created that references an object in dest.
+         * Prevents transport disconnect while proxies exist.
+         *
+         * Thread-Safety: Uses atomic operations
+         */
         void increment_outbound_proxy_count(destination_zone dest);
+
+        /**
+         * @brief Decrement reference count for proxies pointing to destination zone
+         * @param dest The destination zone being dereferenced
+         *
+         * Called when a proxy to dest is destroyed.
+         *
+         * Thread-Safety: Uses atomic operations
+         */
         void decrement_outbound_proxy_count(destination_zone dest);
 
+        /**
+         * @brief Increment reference count for stubs referenced by caller zone
+         * @param dest The caller zone holding the reference
+         *
+         * Called when a stub is referenced by a proxy in dest.
+         *
+         * Thread-Safety: Uses atomic operations
+         */
         void increment_inbound_stub_count(caller_zone dest);
+
+        /**
+         * @brief Decrement reference count for stubs referenced by caller zone
+         * @param dest The caller zone releasing the reference
+         *
+         * Called when a proxy in dest releases its reference to a local stub.
+         *
+         * Thread-Safety: Uses atomic operations
+         */
         void decrement_inbound_stub_count(caller_zone dest);
 
+        /**
+         * @brief Get total count of destinations reachable through this transport
+         * @return Number of destinations
+         */
         int64_t get_destination_count() { return destination_count_.load(); }
 
         static std::shared_ptr<pass_through> create_pass_through(std::shared_ptr<transport> forward,
@@ -131,18 +254,79 @@ namespace rpc
             destination_zone forward_dest,
             destination_zone reverse_dest);
 
-        // Status management
+        /**
+         * @brief Get current transport status
+         * @return Current status (CONNECTING, CONNECTED, RECONNECTING, or DISCONNECTED)
+         *
+         * Thread-Safety: Uses atomic load
+         */
         transport_status get_status() const;
+
+        /**
+         * @brief Set transport status
+         * @param new_status New status to set
+         *
+         * Setting DISCONNECTED triggers cleanup of passthroughs and notifies all
+         * destinations. Derived classes override to add custom behavior (e.g.,
+         * hierarchical transports propagate disconnection to parent/child).
+         *
+         * Thread-Safety: Uses atomic operations
+         */
         virtual void set_status(transport_status new_status);
 
-        // Zone identity accessor
+        /**
+         * @brief Get the local zone ID
+         * @return Zone ID of the local zone
+         */
         zone get_zone_id() const { return zone_id_; }
+
+        /**
+         * @brief Get the adjacent zone ID
+         * @return Zone ID of the zone on the other side of this transport
+         */
         zone get_adjacent_zone_id() const { return adjacent_zone_id_; }
 
+        /**
+         * @brief Initiate connection handshake with remote zone
+         * @param input_descr Descriptor of interface to send to remote zone
+         * @param output_descr[out] Descriptor of interface received from remote zone
+         * @return error::OK() on success, error code on failure
+         *
+         * Delegates to inner_connect() which derived classes implement.
+         *
+         * Thread-Safety: Implementation-specific (varies by derived class)
+         */
         CORO_TASK(int) connect(interface_descriptor input_descr, interface_descriptor& output_descr);
 
-        // inbound i_marshaller interface abstraction
-        // Routes to transport_ for remote zones or service_ for local zone
+        /////////////////////////////////
+        // INBOUND METHODS - Process calls arriving from remote zone
+        /////////////////////////////////
+        // These methods receive calls from the remote zone and route them to:
+        // - Local service (if destination_zone matches zone_id_)
+        // - Passthrough handler (if routing to non-adjacent zone)
+        //
+        // Inbound methods handle back-channel reference counting operations and
+        // update inbound_stub_count_ tracking.
+
+        /**
+         * @brief Process incoming RPC call with return value
+         * @param protocol_version RPC protocol version
+         * @param encoding Serialization format
+         * @param tag Operation tag for tracing
+         * @param caller_zone_id Zone making the call
+         * @param destination_zone_id Target zone (may be local or passthrough)
+         * @param object_id Target object ID
+         * @param interface_id Target interface ordinal
+         * @param method_id Method to invoke
+         * @param in_data Serialized input parameters
+         * @param out_buf_[out] Buffer for serialized return value
+         * @param in_back_channel Input back-channel data for reference counting
+         * @param out_back_channel[out] Output back-channel data for reference counting
+         * @return error::OK() on success, error code on failure
+         *
+         * Routes to local service if destination matches zone_id_, otherwise
+         * routes through passthrough to reach non-adjacent zone.
+         */
         CORO_TASK(int)
         inbound_send(uint64_t protocol_version,
             encoding encoding,
@@ -212,8 +396,25 @@ namespace rpc
             caller_zone caller_zone_id,
             const std::vector<back_channel_entry>& in_back_channel);
 
-        // outbound i_marshaller interface implementation
-        // Routes to transport_ for remote zones or service_ for local zone
+        /////////////////////////////////
+        // OUTBOUND METHODS (i_marshaller implementation) - Send calls to remote zone
+        /////////////////////////////////
+        // These methods are called by the local service to send RPC calls.
+        // They implement the i_marshaller interface (marked final) and delegate
+        // to virtual outbound_* methods that derived classes implement.
+        //
+        // Outbound methods update outbound_proxy_count_ tracking and handle
+        // back-channel reference counting operations.
+
+        /**
+         * @brief Send RPC call with return value to remote zone
+         *
+         * Implements i_marshaller::send(). Delegates to outbound_send() which
+         * derived classes implement to handle transport-specific serialization
+         * and transmission.
+         *
+         * @see inbound_send for parameter descriptions
+         */
         CORO_TASK(int)
         send(uint64_t protocol_version,
             encoding encoding,
@@ -281,11 +482,37 @@ namespace rpc
             caller_zone caller_zone_id,
             const std::vector<back_channel_entry>& in_back_channel) final;
 
-        // tells the transport to connect
+        /////////////////////////////////
+        // VIRTUAL METHODS - Derived classes implement transport-specific behavior
+        /////////////////////////////////
+
+        /**
+         * @brief Establish connection with remote zone
+         * @param input_descr Descriptor of interface to send to remote zone
+         * @param output_descr[out] Descriptor of interface received from remote zone
+         * @return error::OK() on success, error code on failure
+         *
+         * Derived classes implement the transport-specific connection handshake.
+         * Examples:
+         * - TCP: Network socket connection
+         * - SPSC: Queue initialization
+         * - Local: Direct function call to child zone creation
+         *
+         * Thread-Safety: Implementation-specific
+         */
         virtual CORO_TASK(int) inner_connect(interface_descriptor input_descr, interface_descriptor& output_descr) = 0;
 
-        // outbound functions to be implemented by derived classes
-        // Routes to transport_ for remote zones or service_ for local zone
+        /**
+         * @brief Send RPC call to remote zone (transport-specific implementation)
+         *
+         * Derived classes implement serialization and transmission. Common patterns:
+         * - Serialize parameters with encoding format
+         * - Send over transport medium (network, queue, function call)
+         * - Wait for response
+         * - Deserialize return value and back-channel data
+         *
+         * @see inbound_send for parameter descriptions
+         */
         virtual CORO_TASK(int) outbound_send(uint64_t protocol_version,
             encoding encoding,
             uint64_t tag,
