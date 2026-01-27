@@ -204,6 +204,52 @@ namespace rpc
             }
             success = false;
         }
+
+        // Check for live transports
+        // Note: For child_service, the parent_transport is expected to still be alive during shutdown
+        // as it's where the thread goes when shutting down this zone
+        std::lock_guard g(zone_control);
+        const child_service* child_svc = dynamic_cast<const child_service*>(this);
+        std::shared_ptr<transport> expected_parent_transport;
+        destination_zone expected_parent_zone_id;
+        if (child_svc)
+        {
+            expected_parent_transport = child_svc->get_parent_transport();
+            expected_parent_zone_id = child_svc->get_parent_zone_id();
+        }
+
+        for (const auto& item : transports_)
+        {
+            auto transport_ptr = item.second.lock();
+            if (!transport_ptr)
+            {
+                RPC_WARNING("transport zone_id {}, destination_zone_id {} has been released "
+                            "but not deregistered in the service",
+                    std::to_string(zone_id_),
+                    std::to_string(item.first));
+                success = false;
+            }
+            else
+            {
+                // For child_service, allow the parent transport to still exist during shutdown
+                if (child_svc && expected_parent_transport == transport_ptr && item.first == expected_parent_zone_id)
+                {
+                    RPC_DEBUG("transport zone_id {}, parent_zone_id {} still active during child_service shutdown "
+                              "(expected behavior)",
+                        std::to_string(zone_id_),
+                        std::to_string(item.first));
+                    continue;
+                }
+
+                RPC_WARNING("transport zone_id {}, destination_zone_id {} (adjacent_zone={}) "
+                            "has not been released suspected unclean shutdown",
+                    std::to_string(zone_id_),
+                    std::to_string(item.first),
+                    std::to_string(transport_ptr->get_adjacent_zone_id()));
+                success = false;
+            }
+        }
+
         return success;
     }
 

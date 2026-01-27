@@ -743,6 +743,14 @@ namespace rpc
             return parent_transport_;
         }
 
+        /**
+         * @brief Get the parent zone ID
+         * @return Zone ID of the parent zone
+         *
+         * Thread-Safety: Safe to call from multiple threads (const member)
+         */
+        destination_zone get_parent_zone_id() const { return parent_zone_id_; }
+
     public:
 #ifdef CANOPY_BUILD_COROUTINE
         explicit child_service(const char* name,
