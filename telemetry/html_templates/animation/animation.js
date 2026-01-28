@@ -144,6 +144,7 @@ function initAnimationTelemetry() {
     const proxyLinkIndex = new Map();
     const linkUsage = new Map();
     const activeZones = new Set([1]);
+    const flashEdgeSeparator = ':';
     const nodeTypeFilters = [
         { key: 'service_proxy', label: 'Service Proxies', defaultVisible: false },
         { key: 'object_proxy', label: 'Object Proxies', defaultVisible: false },
@@ -158,6 +159,7 @@ function initAnimationTelemetry() {
     nodeTypeFilters.forEach((filter) => typeVisibility.set(filter.key, filter.defaultVisible));
     const zoneAliases = new Map();
     let primaryZoneId = null;
+    let flashHandlersBound = false;
 
     // Build zoneMetadata from events
     const zoneMetadata = {};
@@ -495,6 +497,7 @@ function initAnimationTelemetry() {
                 zoneNode.y = y;
             }
         });
+
     }
     const hasDuration = totalDuration > epsilon;
     const desiredPlaybackSeconds = Math.max(events.length * 0.5, 8);
@@ -2907,6 +2910,8 @@ function initAnimationTelemetry() {
                 .data(root.descendants().filter(d => d.parent && d.data.id !== 0 && d.parent.data.id !== 0))
                 .enter().append('line')
                 .attr('class', 'trunk-line')
+                .attr('data-source-zone', d => d.parent.data.id)
+                .attr('data-target-zone', d => d.data.id)
                 .attr('x1', d => PortRegistry[`${d.parent.data.id}:${d.data.id}`].absX)
                 .attr('y1', d => PortRegistry[`${d.parent.data.id}:${d.data.id}`].absY)
                 .attr('x2', d => PortRegistry[`${d.data.id}:${d.parent.data.id}`].absX)
@@ -3090,6 +3095,8 @@ function initAnimationTelemetry() {
 
                     sG.append('rect')
                         .attr('class', 'stub-box')
+                        .attr('data-object', s.object)
+                        .attr('data-zone', z.id)
                         .attr('x', -boxWidth / 2)
                         .attr('y', -boxHeight / 2)
                         .attr('width', boxWidth)
@@ -3109,7 +3116,9 @@ function initAnimationTelemetry() {
 
                     // Wire from service to stub
                     zoneSel.append('line')
-                        .attr('class', 'wire')
+                        .attr('class', 'wire stub-link')
+                        .attr('data-object', s.object)
+                        .attr('data-zone', z.id)
                         .attr('x1', sx)
                         .attr('y1', sy - boxHeight / 2)
                         .attr('x2', serviceX)
@@ -3213,7 +3222,9 @@ function initAnimationTelemetry() {
 
                     // Wire from service to service proxy
                     zoneSel.append('line')
-                        .attr('class', 'wire')
+                        .attr('class', 'wire service-proxy-link')
+                        .attr('data-source-zone', z.id)
+                        .attr('data-dest-zone', sp.destZone)
                         .attr('x1', spx)
                         .attr('y1', spy - boxHeight / 2)
                         .attr('x2', serviceX)
@@ -3234,6 +3245,9 @@ function initAnimationTelemetry() {
 
                             opG.append('rect')
                                 .attr('class', 'object-proxy-box')
+                                .attr('data-object', op.object)
+                                .attr('data-source-zone', z.id)
+                                .attr('data-dest-zone', op.destZone)
                                 .attr('x', -opBoxWidth / 2)
                                 .attr('y', -opBoxHeight / 2)
                                 .attr('width', opBoxWidth)
@@ -3253,7 +3267,10 @@ function initAnimationTelemetry() {
 
                             // Wire from object proxy to service proxy (connect to top edge of service proxy box)
                             zoneSel.append('line')
-                                .attr('class', 'wire object-to-service-proxy')
+                                .attr('class', 'wire object-to-service-proxy object-proxy-link')
+                                .attr('data-object', op.object)
+                                .attr('data-source-zone', z.id)
+                                .attr('data-dest-zone', op.destZone)
                                 .attr('x1', spx)
                                 .attr('y1', opy - opBoxHeight / 2)
                                 .attr('x2', spx)
@@ -3348,8 +3365,11 @@ function initAnimationTelemetry() {
 
                     if (rP && fP && (rP !== fP)) {
                         const halfBoxHeight = boxHeight / 2;
+                        const routeKey = `${z.id}:${p.fwd}:${p.rev}`;
                         zoneSel.append('line')
                             .attr('class', 'wire routing')
+                            .attr('data-zone', z.id)
+                            .attr('data-route-key', routeKey)
                             .attr('x1', rP.relX)
                             .attr('y1', rP.relY + (rP.relY === 0 ? -15 : 15))
                             .attr('x2', px)
@@ -3357,6 +3377,8 @@ function initAnimationTelemetry() {
 
                         zoneSel.append('line')
                             .attr('class', 'wire routing')
+                            .attr('data-zone', z.id)
+                            .attr('data-route-key', routeKey)
                             .attr('x1', px)
                             .attr('y1', py - halfBoxHeight)
                             .attr('x2', fP.relX)
@@ -3407,7 +3429,9 @@ function initAnimationTelemetry() {
                     // Wire from service to port
                     const halfBoxHeight = boxHeight / 2;
                     zoneSel.append('line')
-                        .attr('class', 'wire')
+                        .attr('class', 'wire transport-link')
+                        .attr('data-source-zone', zId)
+                        .attr('data-adj-zone', adjId)
                         .attr('x1', p.relX)
                         .attr('y1', p.relY + (p.relY === 0 ? -halfBoxHeight : halfBoxHeight))
                         .attr('x2', serviceX)
@@ -3415,6 +3439,9 @@ function initAnimationTelemetry() {
                 });
             }
         });
+
+        bindFlashHandlers();
+        refreshFlashHandlers();
     }
 
     function updateGraph() {
@@ -3428,6 +3455,266 @@ function initAnimationTelemetry() {
         }
         return label.length > 18 ? `${label.slice(0, 15)}…` : label;
     }
+
+    function findZonePath(startZone, targetZone) {
+        if (startZone === targetZone) {
+            return [startZone];
+        }
+        const queue = [startZone];
+        const visited = new Set([startZone]);
+        const parent = new Map();
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            const neighbors = adjacencyList[current];
+            if (!neighbors) {
+                continue;
+            }
+            for (const next of neighbors) {
+                if (visited.has(next)) {
+                    continue;
+                }
+                visited.add(next);
+                parent.set(next, current);
+                if (next === targetZone) {
+                    queue.length = 0;
+                    break;
+                }
+                queue.push(next);
+            }
+        }
+
+        if (!parent.has(targetZone)) {
+            return null;
+        }
+        const path = [targetZone];
+        let cursor = targetZone;
+        while (parent.has(cursor)) {
+            cursor = parent.get(cursor);
+            path.push(cursor);
+            if (cursor === startZone) {
+                break;
+            }
+        }
+        return path.reverse();
+    }
+
+    function clearFlashHighlights() {
+        d3.selectAll('.flash-line').classed('flash-line', false);
+        d3.selectAll('.flash-box').classed('flash-box', false);
+    }
+
+    function getRouteKeysForPath(path, endpointA, endpointB) {
+        if (!path || path.length < 3) {
+            return new Set();
+        }
+        const routeKeys = new Set();
+        const matchA = endpointA;
+        const matchB = endpointB;
+        for (let i = 1; i < path.length - 1; i++) {
+            const zoneId = path[i];
+            const zone = zones[zoneId];
+            if (!zone || !zone.passthroughs) {
+                continue;
+            }
+            zone.passthroughs.forEach((p) => {
+                const forwardMatch = p.fwd === matchA && p.rev === matchB;
+                const reverseMatch = p.fwd === matchB && p.rev === matchA;
+                if (forwardMatch || reverseMatch) {
+                    routeKeys.add(`${zoneId}:${p.fwd}:${p.rev}`);
+                }
+            });
+        }
+        return routeKeys;
+    }
+
+    function addFlashForPath(path, routeKeys, endpointA, endpointB) {
+        if (!path || path.length === 0) {
+            return;
+        }
+        const zoneSet = new Set(path);
+        const edgeSet = new Set();
+        for (let i = 0; i < path.length - 1; i++) {
+            const a = path[i];
+            const b = path[i + 1];
+            edgeSet.add(`${a}${flashEdgeSeparator}${b}`);
+            edgeSet.add(`${b}${flashEdgeSeparator}${a}`);
+        }
+
+        d3.selectAll('.trunk-line')
+            .filter(function () {
+                const source = Number(this.getAttribute('data-source-zone'));
+                const target = Number(this.getAttribute('data-target-zone'));
+                if (!Number.isFinite(source) || !Number.isFinite(target)) {
+                    return false;
+                }
+                return edgeSet.has(`${source}${flashEdgeSeparator}${target}`);
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.wire.routing')
+            .filter(function () {
+                const zone = Number(this.getAttribute('data-zone'));
+                if (!Number.isFinite(zone) || !zoneSet.has(zone)) {
+                    return false;
+                }
+                if (!routeKeys || routeKeys.size === 0) {
+                    return false;
+                }
+                const key = this.getAttribute('data-route-key');
+                return key && routeKeys.has(key);
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.transport-link')
+            .filter(function () {
+                const source = Number(this.getAttribute('data-source-zone'));
+                const adj = Number(this.getAttribute('data-adj-zone'));
+                if (!Number.isFinite(source) || !Number.isFinite(adj)) {
+                    return false;
+                }
+                if (source !== endpointA && source !== endpointB) {
+                    return false;
+                }
+                return edgeSet.has(`${source}${flashEdgeSeparator}${adj}`);
+            })
+            .classed('flash-line', true);
+    }
+
+    function flashObjectProxy(objectId, sourceZone, destZone) {
+        clearFlashHighlights();
+        const path = findZonePath(sourceZone, destZone);
+        const routeKeys = getRouteKeysForPath(path, sourceZone, destZone);
+        addFlashForPath(path, routeKeys, sourceZone, destZone);
+
+        d3.selectAll('.object-proxy-box')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-source-zone') == sourceZone
+                    && this.getAttribute('data-dest-zone') == destZone;
+            })
+            .classed('flash-box', true);
+
+        d3.selectAll('.stub-box')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-zone') == destZone;
+            })
+            .classed('flash-box', true);
+
+        d3.selectAll('.object-proxy-link')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-source-zone') == sourceZone
+                    && this.getAttribute('data-dest-zone') == destZone;
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.service-proxy-link')
+            .filter(function () {
+                return this.getAttribute('data-source-zone') == sourceZone
+                    && this.getAttribute('data-dest-zone') == destZone;
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.stub-link')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-zone') == destZone;
+            })
+            .classed('flash-line', true);
+    }
+
+    function flashStub(objectId, zoneId) {
+        clearFlashHighlights();
+        d3.selectAll('.stub-box')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-zone') == zoneId;
+            })
+            .classed('flash-box', true);
+
+        const proxyRects = d3.selectAll('.object-proxy-box')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-dest-zone') == zoneId;
+            });
+
+        const sourceZones = new Set();
+        proxyRects.each(function () {
+            const sourceZone = Number(this.getAttribute('data-source-zone'));
+            if (Number.isFinite(sourceZone)) {
+                sourceZones.add(sourceZone);
+            }
+        });
+
+        proxyRects.classed('flash-box', true);
+
+        d3.selectAll('.object-proxy-link')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-dest-zone') == zoneId;
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.service-proxy-link')
+            .filter(function () {
+                return this.getAttribute('data-dest-zone') == zoneId
+                    && sourceZones.has(Number(this.getAttribute('data-source-zone')));
+            })
+            .classed('flash-line', true);
+
+        d3.selectAll('.stub-link')
+            .filter(function () {
+                return this.getAttribute('data-object') == objectId
+                    && this.getAttribute('data-zone') == zoneId;
+            })
+            .classed('flash-line', true);
+
+        sourceZones.forEach((sourceZone) => {
+            const path = findZonePath(sourceZone, zoneId);
+            const routeKeys = getRouteKeysForPath(path, sourceZone, zoneId);
+            addFlashForPath(path, routeKeys, sourceZone, zoneId);
+        });
+    }
+
+    function bindFlashHandlers() {
+        if (flashHandlersBound) {
+            return;
+        }
+        flashHandlersBound = true;
+
+        const svgSelection = d3.select('svg');
+        if (!svgSelection.empty()) {
+            svgSelection.on('pointerup.flash', clearFlashHighlights);
+            svgSelection.on('pointerleave.flash', clearFlashHighlights);
+            svgSelection.on('pointercancel.flash', clearFlashHighlights);
+        }
+
+        d3.select(window).on('pointerup.flash', clearFlashHighlights);
+    }
+
+    function refreshFlashHandlers() {
+        d3.selectAll('rect.object-proxy-box').on('pointerdown.flash', function (event) {
+            event.stopPropagation();
+            const objectId = this.getAttribute('data-object');
+            const sourceZone = Number(this.getAttribute('data-source-zone'));
+            const destZone = Number(this.getAttribute('data-dest-zone'));
+            if (objectId !== null && Number.isFinite(sourceZone) && Number.isFinite(destZone)) {
+                flashObjectProxy(objectId, sourceZone, destZone);
+            }
+        });
+
+        d3.selectAll('rect.stub-box').on('pointerdown.flash', function (event) {
+            event.stopPropagation();
+            const objectId = this.getAttribute('data-object');
+            const zoneId = Number(this.getAttribute('data-zone'));
+            if (objectId !== null && Number.isFinite(zoneId)) {
+                flashStub(objectId, zoneId);
+            }
+        });
+    }
+
 }
 
 window.initAnimationTelemetry = initAnimationTelemetry;
