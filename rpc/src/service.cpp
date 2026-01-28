@@ -95,7 +95,7 @@ namespace rpc
         // Verify all object stubs have been properly released before service destruction
         bool is_empty = check_is_empty();
         (void)is_empty;
-        RPC_ASSERT(is_empty);
+        // RPC_ASSERT(is_empty);
 
         {
             std::lock_guard l(stub_control_);

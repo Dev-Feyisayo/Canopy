@@ -55,7 +55,7 @@ namespace rpc
             descriptor = {0, 0};
             CO_RETURN rpc::error::OK();
         }
-        auto factory = zone->create_interface_stub(iface);
+        auto factory = zone->get_interface_stub_factory(iface);
 
         std::shared_ptr<rpc::object_stub> stub;
         CO_RETURN CO_AWAIT zone->get_proxy_stub_descriptor(
@@ -259,6 +259,18 @@ namespace rpc
             RPC_ERROR("Object not found in demarshall_interface_proxy");
             CO_RETURN rpc::error::OBJECT_NOT_FOUND();
         }
+#ifdef CANOPY_USE_TELEMETRY
+        if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
+        {
+            telemetry_service->on_service_proxy_add_ref(service_proxy->get_zone_id(),
+                encap.destination_zone_id,
+                service_proxy->get_zone_id().as_caller(),
+                encap.object_id,
+                0,
+                rpc::add_ref_options::normal);
+        }
+#endif
+
         RPC_ASSERT(op != nullptr);
         CO_RETURN CO_AWAIT op->query_interface(val, false);
     }
@@ -276,7 +288,7 @@ namespace rpc
             CO_RETURN error::INVALID_DATA();
         }
         std::shared_ptr<object_stub> stub;
-        auto factory = serv.create_interface_stub(iface);
+        auto factory = serv.get_interface_stub_factory(iface);
         CO_RETURN CO_AWAIT serv.get_proxy_stub_descriptor(
             rpc::get_version(), caller_zone_id, iface.get(), factory, false, stub, descriptor);
     }

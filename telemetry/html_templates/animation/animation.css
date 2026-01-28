@@ -335,6 +335,25 @@ svg {
     pointer-events: none;
 }
 
+.service-proxy-box {
+    fill: #a855f7;
+    stroke: #d8b4fe;
+    stroke-width: 2;
+}
+
+.service-proxy-label {
+    font-size: 9px;
+    fill: #ffffff;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.service-proxy-detail {
+    font-size: 9px;
+    fill: #fae8ff;
+    pointer-events: none;
+}
+
 .wire {
     stroke: #ffffff;
     stroke-width: 1.2;

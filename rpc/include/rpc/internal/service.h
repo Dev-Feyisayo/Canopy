@@ -548,7 +548,7 @@ namespace rpc
 
         template<class T>
         std::function<std::shared_ptr<rpc::i_interface_stub>(const std::shared_ptr<object_stub>& stub)>
-        create_interface_stub(const shared_ptr<T>& iface);
+        get_interface_stub_factory(const shared_ptr<T>& iface);
 
         int create_interface_stub(rpc::interface_ordinal interface_id,
             std::function<interface_ordinal(uint8_t)> original_interface_id,
@@ -812,15 +812,16 @@ namespace rpc
             // This ensures parent zone remains reachable while child exists
             child_svc->set_parent_transport(parent_transport);
 
-            auto parent_service_proxy
-                = rpc::service_proxy::create("parent", child_svc, parent_transport, input_descr.destination_zone_id);
-
             child_svc->add_transport(input_descr.destination_zone_id, parent_transport);
-            child_svc->add_zone_proxy(parent_service_proxy);
 
             rpc::shared_ptr<PARENT_INTERFACE> parent_ptr;
-            if (input_descr != interface_descriptor())
+            if (input_descr.object_id != 0)
             {
+                auto parent_service_proxy
+                    = rpc::service_proxy::create("parent", child_svc, parent_transport, input_descr.destination_zone_id);
+
+                child_svc->add_zone_proxy(parent_service_proxy);
+
 #if defined(CANOPY_USE_TELEMETRY) && defined(CANOPY_USE_TELEMETRY_RAII_LOGGING)
                 if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
                     telemetry_service->on_transport_inbound_add_ref(zone_id,
@@ -892,7 +893,7 @@ namespace rpc
         {
             add_transport(child_transport->get_adjacent_zone_id().as_destination(), child_transport);
             std::shared_ptr<object_stub> stub;
-            auto factory = create_interface_stub(input_interface);
+            auto factory = get_interface_stub_factory(input_interface);
             err_code = CO_AWAIT get_proxy_stub_descriptor(rpc::get_version(),
                 child_transport->get_adjacent_zone_id().as_caller(),
                 input_interface.get(),
@@ -921,6 +922,7 @@ namespace rpc
 
             // add the proxy to the service
             add_zone_proxy(new_service_proxy);
+
             // Demarshal output interface if provided
             if (output_descr.object_id != 0 && output_descr.destination_zone_id != 0)
             {

@@ -40,6 +40,13 @@ namespace rpc
         auto ret = std::shared_ptr<service_proxy>(new service_proxy(
             name, service->get_zone_id(), destination_zone_id, service, transport, rpc::get_version(), RPC_DEFAULT_ENCODING));
         transport->increment_outbound_proxy_count(destination_zone_id);
+#ifdef CANOPY_USE_TELEMETRY
+        if (auto telemetry_service = rpc::get_telemetry_service(); telemetry_service)
+        {
+            telemetry_service->on_service_proxy_creation(
+                service->get_name(), name, service->get_zone_id(), destination_zone_id, service->get_zone_id().as_caller());
+        }
+#endif
         return ret;
     }
 

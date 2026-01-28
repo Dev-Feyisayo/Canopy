@@ -2180,7 +2180,7 @@ namespace synchronous_generator
 
         stub("template<> std::function<std::shared_ptr<rpc::i_interface_stub>(const std::shared_ptr<rpc::object_stub>& "
              "stub)> "
-             "service::create_interface_stub(const rpc::shared_ptr<::{}{}>& iface)",
+             "service::get_interface_stub_factory(const rpc::shared_ptr<::{}{}>& iface)",
             ns,
             interface_name);
         stub("{{");
@@ -2203,7 +2203,7 @@ namespace synchronous_generator
         stub("CO_RETURN rpc::error::INVALID_DATA();");
         stub("}}");
 
-        stub("auto factory = create_interface_stub(iface);");
+        stub("auto factory = get_interface_stub_factory(iface);");
         stub("CO_RETURN CO_AWAIT get_proxy_stub_descriptor(protocol_version, caller_zone_id, iface.get(), "
              "factory, "
              "false, stub, descriptor);");

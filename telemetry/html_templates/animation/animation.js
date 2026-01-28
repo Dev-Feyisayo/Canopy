@@ -41,6 +41,12 @@ function initAnimationTelemetry() {
     const passthroughMinWidth = 80;
     const passthroughMinHeight = 30;
     const passthroughMaxWidth = 240;
+    const serviceProxyLineHeight = 12;
+    const serviceProxyBoxPaddingX = 8;
+    const serviceProxyBoxPaddingY = 6;
+    const serviceProxyMinWidth = 60;
+    const serviceProxyMinHeight = 30;
+    const serviceProxyMaxWidth = 200;
 
     const palette = {
         zone: '#38bdf8',
@@ -282,6 +288,7 @@ function initAnimationTelemetry() {
                     parentId: parentNumber || 0,
                     transports: [],
                     passthroughs: [],
+                    serviceProxies: [],
                     children: [],
                     width: 260,
                     height: 140
@@ -303,6 +310,7 @@ function initAnimationTelemetry() {
                             parentId: 0,
                             transports: [],
                             passthroughs: [],
+                            serviceProxies: [],
                             children: [],
                             width: 260,
                             height: 140
@@ -324,6 +332,7 @@ function initAnimationTelemetry() {
                         parentId: 0,
                         transports: [],
                         passthroughs: [],
+                        serviceProxies: [],
                         children: [],
                         width: 260,
                         height: 140
@@ -763,6 +772,9 @@ function initAnimationTelemetry() {
             entry.children = entry.children.filter((id) => id !== zoneNumber);
             entry.transports = entry.transports.filter((t) => t.adjId !== zoneNumber);
             entry.passthroughs = entry.passthroughs.filter((p) => p.fwd !== zoneNumber && p.rev !== zoneNumber);
+            if (entry.serviceProxies) {
+                entry.serviceProxies = entry.serviceProxies.filter((sp) => sp.destZone !== zoneNumber);
+            }
         });
         if (adjacencyList[zoneNumber]) {
             adjacencyList[zoneNumber].forEach((neighbor) => {
@@ -894,7 +906,7 @@ function initAnimationTelemetry() {
                 createServiceProxy(evt);
                 break;
             case 'service_proxy_deletion':
-                deleteNode(makeServiceProxyId(evt.data));
+                deleteServiceProxy(evt);
                 break;
             case 'service_proxy_add_ref':
             case 'service_proxy_release':
@@ -964,6 +976,9 @@ function initAnimationTelemetry() {
             case 'pass_through_add_ref':
             case 'pass_through_release':
                 updatePassthroughCounts(evt);
+                break;
+            case 'service_proxy_send':
+                pulseActivity(evt);
                 break;
             case 'message':
                 appendLog(evt);
@@ -1111,7 +1126,32 @@ function initAnimationTelemetry() {
                 type: 'route'
             });
         }
+        // Track service proxy in zones structure for visualization
+        if (zones[zoneNumber]) {
+            // Ensure serviceProxies array exists
+            if (!zones[zoneNumber].serviceProxies) {
+                zones[zoneNumber].serviceProxies = [];
+            }
+            // Check if this service proxy already exists (avoid duplicates)
+            const existingProxy = zones[zoneNumber].serviceProxies.find(sp => sp.destZone === destinationZoneNumber);
+            if (!existingProxy) {
+                zones[zoneNumber].serviceProxies.push({ destZone: destinationZoneNumber });
+            }
+        }
         appendLog(evt);
+    }
+
+    function deleteServiceProxy(evt) {
+        const zoneNumber = normalizeZoneNumber(evt.data.zone);
+        const destinationZoneNumber = normalizeZoneNumber(evt.data.destinationZone);
+        const id = makeServiceProxyId(evt.data);
+        // Remove from zones tracking
+        if (zones[zoneNumber] && zones[zoneNumber].serviceProxies) {
+            zones[zoneNumber].serviceProxies = zones[zoneNumber].serviceProxies.filter(
+                sp => sp.destZone !== destinationZoneNumber
+            );
+        }
+        deleteNode(id);
     }
 
     function updateProxyCounts(evt) {
@@ -2351,9 +2391,49 @@ function initAnimationTelemetry() {
         return { lines, width, height };
     }
 
+    function buildServiceProxyLines(zoneNumber, destinationZoneNumber) {
+        const lines = [`TO:${destinationZoneNumber}`];
+        // Find service proxy node to get ref counts
+        // Service proxies may have different callerZone values, so we need to search for any matching proxy
+        let totalRefCount = 0;
+        let totalExtCount = 0;
+        let foundAny = false;
+
+        // Check all possible caller zone values
+        nodes.forEach((node) => {
+            if (node.type === 'service_proxy' &&
+                node.zone === zoneNumber &&
+                node.destinationZone === destinationZoneNumber) {
+                totalRefCount += (node.refCount || 0);
+                totalExtCount += (node.externalRefCount || 0);
+                foundAny = true;
+            }
+        });
+
+        if (foundAny) {
+            lines.push(`R${totalRefCount} E${totalExtCount}`);
+        } else {
+            lines.push('no refs');
+        }
+        return lines;
+    }
+
+    function computeServiceProxyMetrics(zoneNumber, destinationZoneNumber) {
+        const lines = buildServiceProxyLines(zoneNumber, destinationZoneNumber);
+        const maxLen = lines.reduce((max, line) => Math.max(max, line.length), 0);
+        const width = Math.min(
+            serviceProxyMaxWidth,
+            Math.max(serviceProxyMinWidth, serviceProxyBoxPaddingX * 2 + maxLen * 6));
+        const height = Math.max(
+            serviceProxyMinHeight,
+            serviceProxyBoxPaddingY * 2 + lines.length * serviceProxyLineHeight);
+        return { lines, width, height };
+    }
+
     function rebuildVisualization() {
         const showTransports = typeVisibility.get('transport');
         const showPassthroughs = typeVisibility.get('passthrough');
+        const showServiceProxies = typeVisibility.get('service_proxy');
         // Clear existing visualization
         g.selectAll('*').remove();
         clearObject(PortRegistry);
@@ -2371,6 +2451,7 @@ function initAnimationTelemetry() {
             parentId: -1,
             transports: [],
             passthroughs: [],
+            serviceProxies: [],
             children: rootZones.map(z => z.id),
             width: 260,
             height: 140
@@ -2430,13 +2511,31 @@ function initAnimationTelemetry() {
             z.passthroughBoxWidth = maxPassthroughBoxWidth;
             z.passthroughBoxHeight = maxPassthroughBoxHeight;
 
+            // Calculate service proxy metrics
+            z.serviceProxyMetrics = [];
+            let maxServiceProxyBoxWidth = serviceProxyMinWidth;
+            let maxServiceProxyBoxHeight = serviceProxyMinHeight;
+            if (showServiceProxies && z.serviceProxies && z.serviceProxies.length > 0) {
+                z.serviceProxies.forEach((sp) => {
+                    const metrics = computeServiceProxyMetrics(z.id, sp.destZone);
+                    z.serviceProxyMetrics.push(metrics);
+                    maxServiceProxyBoxWidth = Math.max(maxServiceProxyBoxWidth, metrics.width);
+                    maxServiceProxyBoxHeight = Math.max(maxServiceProxyBoxHeight, metrics.height);
+                });
+            }
+            z.serviceProxyBoxWidth = maxServiceProxyBoxWidth;
+            z.serviceProxyBoxHeight = maxServiceProxyBoxHeight;
+
             const transportCount = showTransports ? z.transports.length : 0;
             const passthroughCount = showPassthroughs ? z.passthroughs.length : 0;
-            const colCount = Math.max(transportCount, passthroughCount, 1);
-            const maxBoxWidth = Math.max(maxTransportBoxWidth, maxPassthroughBoxWidth);
+            const serviceProxyCount = showServiceProxies && z.serviceProxies ? z.serviceProxies.length : 0;
+            const colCount = Math.max(transportCount, passthroughCount, serviceProxyCount, 1);
+            const maxBoxWidth = Math.max(maxTransportBoxWidth, maxPassthroughBoxWidth, maxServiceProxyBoxWidth);
             z.width = Math.max(260, colCount * (maxBoxWidth + 40));
-            const baseHeight = passthroughCount > 0 ? 260 : 140;
-            const totalHeight = 120 + maxTransportBoxHeight + (passthroughCount > 0 ? maxPassthroughBoxHeight : 0);
+            const baseHeight = (passthroughCount > 0 || serviceProxyCount > 0) ? 260 : 140;
+            const additionalHeight = (passthroughCount > 0 ? maxPassthroughBoxHeight : 0) +
+                                    (serviceProxyCount > 0 ? maxServiceProxyBoxHeight : 0);
+            const totalHeight = 120 + maxTransportBoxHeight + additionalHeight;
             z.height = Math.max(baseHeight, totalHeight);
         });
 
@@ -2720,6 +2819,51 @@ function initAnimationTelemetry() {
                             .attr('y2', fP.relY + (fP.relY === 0 ? -15 : 15));
                     }
                     // If routing fails, passthrough is rendered without wiring
+                });
+            }
+
+            // Render service proxies
+            if (showServiceProxies && z.serviceProxies && z.serviceProxies.length > 0) {
+                z.serviceProxies.forEach((sp, i) => {
+                    const spx = (z.serviceProxies.length > 1)
+                        ? (i / (z.serviceProxies.length - 1) * (z.width - 160)) - (z.width / 2 - 80)
+                        : 0;
+                    const spy = svcY + 80 + (showPassthroughs && z.passthroughs.length > 0 ? z.passthroughBoxHeight + 20 : 0);
+
+                    const metrics = z.serviceProxyMetrics[i] || computeServiceProxyMetrics(z.id, sp.destZone);
+                    const boxWidth = metrics.width;
+                    const boxHeight = metrics.height;
+                    const lines = metrics.lines;
+
+                    const spG = zoneSel.append('g').attr('transform', `translate(${spx},${spy})`);
+
+                    spG.append('rect')
+                        .attr('class', 'service-proxy-box')
+                        .attr('x', -boxWidth / 2)
+                        .attr('y', -boxHeight / 2)
+                        .attr('width', boxWidth)
+                        .attr('height', boxHeight)
+                        .attr('rx', 4);
+
+                    const textStartX = -boxWidth / 2 + serviceProxyBoxPaddingX;
+                    const textStartY = -boxHeight / 2 + serviceProxyBoxPaddingY + 9;
+                    lines.forEach((line, idx) => {
+                        spG.append('text')
+                            .attr('class', idx === 0 ? 'service-proxy-label' : 'service-proxy-detail')
+                            .attr('x', textStartX)
+                            .attr('y', textStartY + idx * serviceProxyLineHeight)
+                            .attr('text-anchor', 'start')
+                            .text(line);
+                    });
+
+                    // Wire from service to service proxy
+                    const halfBoxHeight = boxHeight / 2;
+                    zoneSel.append('line')
+                        .attr('class', 'wire')
+                        .attr('x1', spx)
+                        .attr('y1', spy - halfBoxHeight)
+                        .attr('x2', 0)
+                        .attr('y2', svcY - 15);
                 });
             }
         });
