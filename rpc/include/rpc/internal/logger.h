@@ -44,6 +44,14 @@ extern "C"
     } while (0)
 #endif
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+
 // Unified logging macros with levels (0=DEBUG, 1=TRACE, 2=INFO, 3=WARNING, 4=ERROR, 5=CRITICAL)
 #if defined(CANOPY_USE_LOGGING) || (defined(CANOPY_USE_THREAD_LOCAL_LOGGING) && !defined(_IN_ENCLAVE))
 
@@ -104,5 +112,12 @@ extern "C"
 #define RPC_ERROR(format_str, ...)
 #define RPC_CRITICAL(format_str, ...)
 #endif
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 #define RPC_LOGGING_DEFINED
 #endif
